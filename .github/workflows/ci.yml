@@ -22,10 +22,22 @@ jobs:
         run: uvx ruff format --check server/
 
       - name: Python syntax check
-        run: python -m py_compile server/server.py
+        run: python -m py_compile server/*.py
 
       - name: Validate JSON config
         run: |
           for f in .mcp.json .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
             python -c "import json; json.load(open('$f')); print('OK', '$f')"
           done
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run unit tests
+        run: uv run --with pytest pytest -q tests/

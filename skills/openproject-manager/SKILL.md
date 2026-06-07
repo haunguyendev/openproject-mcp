@@ -1,42 +1,61 @@
 ---
 name: openproject-manager
-description: Quản lý công việc trên OpenProject — xem/tạo/cập nhật task, gán người, log giờ, báo cáo tiến độ và việc quá hạn. Dùng khi người dùng hỏi về task, dự án, deadline, tiến độ, hoặc muốn tạo/cập nhật công việc.
+description: Quản lý công việc trên OpenProject cho mọi vai trò — member (việc của tôi, log giờ, comment), project manager (tiến độ, quá hạn, workload, milestone, báo cáo CSV/HTML), coder (bug, subtask, quan hệ, version, ước lượng) và admin (dự án, thành viên, role, user). Dùng khi người dùng hỏi về task, dự án, deadline, tiến độ, log giờ, bug, thành viên, hoặc quản trị OpenProject.
 ---
 
 # OpenProject Manager
 
-Bạn có các MCP tool từ server `openproject` để làm việc với OpenProject của công ty.
+Bạn có bộ MCP tool từ server `openproject` (API v3). Skill này định tuyến theo **vai trò người dùng** và nạp file hướng dẫn riêng cho từng vai trò.
 
-## Bắt đầu phiên làm việc
+## Bắt đầu phiên
 
-1. Nếu chưa chắc kết nối hoạt động, gọi `whoami` trước. Nếu lỗi 401, hướng dẫn người dùng lấy API key tại **My account → Access tokens → API** trên OpenProject của họ và đặt biến môi trường `OPENPROJECT_API_KEY` (xem README để biết cách cấu hình).
-2. Khi người dùng nhắc tên dự án mà bạn chưa biết ID, gọi `list_projects` để tra (dùng `id` hoặc `identifier`).
-3. ID của type/status/priority khác nhau giữa các hệ thống — gọi `list_types`, `list_statuses`, `list_priorities` khi cần, và ghi nhớ trong phiên để không gọi lại.
+1. Nếu chưa chắc kết nối, gọi `whoami`. Lỗi 401 → hướng dẫn lấy API key (My account → Access tokens → API) và đặt biến môi trường `OPENPROJECT_API_KEY` (xem README).
+2. `whoami` trả về `admin` (true/false) và giúp suy ra vai trò — dùng làm tín hiệu phụ khi định tuyến.
 
-## Trả lời câu hỏi nhanh
+## Định tuyến theo vai trò (intent + roles)
 
-- "Hôm nay tôi cần làm gì?" / "việc của tôi" → `report_my_tasks`
-- "Có gì quá hạn không?" → `report_overdue` (kèm project nếu có)
-- "Tiến độ dự án X?" → `report_project_progress`
-- Tìm task cụ thể → `list_work_packages` với `search`
-- Trình bày kết quả gọn: ưu tiên việc quá hạn lên đầu, kèm link `url` để người dùng mở trực tiếp.
+Xác định vai trò từ yêu cầu, rồi **đọc file reference tương ứng** và làm theo:
 
-## Tạo / cập nhật công việc
+| Tín hiệu trong câu hỏi | Vai trò | Đọc file |
+|---|---|---|
+| "việc của tôi", "log giờ", "comment", "đổi trạng thái việc của tôi" | member | `references/member.md` |
+| "tiến độ", "quá hạn", "workload", "milestone/version", "báo cáo", "portfolio", "export" | project manager | `references/project-manager.md` |
+| "bug", "subtask", "quan hệ/relation", "version/sprint", "ước lượng vs thực tế" | coder | `references/coder.md` |
+| "tạo/đóng dự án", "thêm/xóa thành viên", "role", "user" | admin | `references/admin.md` |
+| Cần xuất CSV hoặc dựng báo cáo HTML chuyên nghiệp | (mọi vai trò) | `references/reporting.md` |
 
-- **Tạo task**: cần project + subject. Nếu người dùng nói "gán cho [tên]", gọi `list_project_members` để tra user_id. Trước khi tạo, xác nhận lại tóm tắt (tiêu đề, dự án, người gán, hạn) với người dùng.
-- **Cập nhật**: LUÔN gọi `get_work_package` trước để lấy `lock_version` mới nhất, rồi truyền vào `update_work_package`. Nếu gặp lỗi 409 (conflict), lấy lại lock_version và thử lại một lần.
-- **Đổi trạng thái**: tra ID qua `list_statuses` ("In progress", "Closed"...). Lưu ý workflow của OpenProject có thể không cho chuyển trực tiếp giữa hai trạng thái bất kỳ — nếu bị từ chối, báo lại các trạng thái hợp lệ.
-- **Đóng task**: hỏi người dùng có muốn thêm comment tổng kết (`add_comment`) trước khi đóng không.
+- Tín hiệu phụ: `whoami.admin=true` → mở khóa hướng dẫn admin; vai trò trong `list_project_members` → ưu tiên manager.
+- Mơ hồ → hỏi đúng 1 câu làm rõ.
 
-## Time tracking
+## Quy tắc dùng chung (mọi vai trò)
 
-- "Log 2 tiếng cho task #123" → `log_time(wp_id=123, hours=2)`. Ngày mặc định là hôm nay.
-- "Tuần này tôi làm bao nhiêu giờ?" → `list_time_entries` với `from_date`/`to_date`, rồi tự cộng tổng và nhóm theo work package.
+- **Đọc tự do**: list/get/report/whoami/list_versions/get_relations... gọi thoải mái.
+- **Ghi phải xác nhận trước**: create/update/add_comment/log_time/create_relation/add_member... → tóm tắt payload (việc gì, dự án nào, ai, khi nào) và chờ người dùng đồng ý, trừ khi họ đã nêu đủ và yêu cầu rõ ràng.
+- **Cập nhật work package**: LUÔN gọi `get_work_package` lấy `lock_version` mới nhất rồi truyền vào `update_work_package`; gặp 409 → lấy lại lock_version và thử lại 1 lần.
+- **Tên → ID**: tra qua `list_projects`, `list_project_members`, `list_types`, `list_statuses`, `list_priorities`, `list_versions`, `list_roles`; nhớ trong phiên để khỏi gọi lại.
+- **Ngày**: truyền tool dạng `YYYY-MM-DD`; nói với người dùng dạng tự nhiên.
+- **Trình bày**: ưu tiên việc quá hạn lên đầu, kèm `url` để mở trực tiếp.
+- Trả lời tiếng Việt trừ khi người dùng dùng ngôn ngữ khác. **Không bao giờ hiển thị API key.**
 
-## Quy tắc
+## Phân tầng quyền
 
-- Thao tác ĐỌC (list, get, report, whoami) được gọi thoải mái.
-- Thao tác GHI (create, update, add_comment, log_time) phải tóm tắt nội dung sẽ gửi và được người dùng đồng ý trước — trừ khi họ đã cung cấp đầy đủ thông tin và yêu cầu rõ ràng.
-- Ngày tháng luôn dùng định dạng YYYY-MM-DD khi gọi tool; khi nói chuyện với người dùng thì dùng định dạng tự nhiên (vd "thứ Sáu 12/06").
-- Trả lời bằng tiếng Việt trừ khi người dùng dùng ngôn ngữ khác.
-- Không bao giờ hiển thị API key.
+| Tầng | Tool | Quy tắc |
+|---|---|---|
+| Đọc | list/get/report/whoami/versions/relations | tự do |
+| Ghi (self/project) | create/update WP, comment, log_time, reassign, create_relation, add_member, update_member | xác nhận tóm tắt trước |
+| Admin/hủy | create/update/archive project, remove_member | xác nhận; **archive & remove_member = xác nhận 2 lần** |
+
+Thiếu quyền → API trả 403; báo người dùng rõ ràng (tài khoản không đủ quyền), không thử vòng vo.
+
+## Danh mục tool (33)
+
+- **Work packages**: list_work_packages (lọc project/status/assignee/type/version/due_within), get_work_package, create_work_package (có parent_id), update_work_package, add_comment.
+- **Dự án & metadata**: list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami.
+- **Coder**: list_children, get_relations, create_relation.
+- **Time**: log_time, list_time_entries, my_time_summary.
+- **Báo cáo**: report_overdue, report_my_tasks, report_project_progress, report_workload, report_status_board, report_time, report_portfolio.
+- **Admin**: list_users, get_user, list_roles, create_project, update_project, add_member, update_member, remove_member.
+
+## Phạm vi
+
+Skill này chỉ vận hành các tool OpenProject MCP (API v3). KHÔNG quản lý hệ thống khác, KHÔNG chạy lệnh shell, KHÔNG để lộ thông tin xác thực. Thao tác admin/hủy cần xác nhận rõ ràng (2 lần với archive/remove).

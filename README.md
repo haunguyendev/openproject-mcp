@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
-![Version](https://img.shields.io/badge/version-0.2.1-green.svg)
+![Version](https://img.shields.io/badge/version-0.3.0-green.svg)
 
 An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude (Claude Code, Claude Desktop, Cowork) to any self-hosted OpenProject instance via its [REST API v3](https://www.openproject.org/docs/api/). Ask Claude things like *"what's overdue in project Website?"* or *"create a task and assign it to Nam, due Friday"* and it calls the right API for you.
 
@@ -45,7 +45,7 @@ The agent fetches the instructions from that link, asks you for your OpenProject
 
 ## Features
 
-- **16 focused tools** covering the daily project-management loop — work packages, projects, members, time tracking, and reports.
+- **33 tools across 4 roles** — member, project manager, coder, and admin — covering work packages, projects, members, versions, relations, time tracking, reports, and administration.
 - **Works anywhere Claude runs** — Claude Code (plugin/marketplace), Claude Desktop, and Cowork.
 - **Any OpenProject** — point it at your own instance with two environment variables.
 - **Safe writes** — the bundled skill confirms before creating/updating anything and uses optimistic locking (`lockVersion`) to avoid clobbering concurrent edits.
@@ -54,13 +54,18 @@ The agent fetches the instructions from that link, asks you for your OpenProject
 
 ## Tools
 
-| Group | Tools |
+The bundled skill routes these by role (member / project manager / coder / admin).
+
+| Area | Tools |
 |---|---|
-| Work packages | `list_work_packages`, `get_work_package`, `create_work_package`, `update_work_package`, `add_comment` |
-| Projects & members | `list_projects`, `list_project_members`, `whoami` |
-| Metadata | `list_types`, `list_statuses`, `list_priorities` |
-| Time tracking | `log_time`, `list_time_entries` |
-| Reports | `report_overdue`, `report_my_tasks`, `report_project_progress` |
+| Work packages | `list_work_packages` (filter by project/status/assignee/type/version/due), `get_work_package`, `create_work_package` (subtask via `parent_id`), `update_work_package`, `add_comment` |
+| Projects & metadata | `list_projects`, `list_project_members`, `list_versions`, `list_types`, `list_statuses`, `list_priorities`, `whoami` |
+| Coder | `list_children`, `get_relations`, `create_relation` |
+| Time tracking | `log_time`, `list_time_entries`, `my_time_summary` |
+| Reports | `report_overdue`, `report_my_tasks`, `report_project_progress`, `report_workload`, `report_status_board`, `report_time`, `report_portfolio` |
+| Admin | `list_users`, `get_user`, `list_roles`, `create_project`, `update_project`, `add_member`, `update_member`, `remove_member` |
+
+Write tools always require confirmation in the skill; destructive admin actions (archive project, remove member) double-confirm.
 
 ## Requirements
 
