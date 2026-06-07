@@ -142,7 +142,7 @@
 ## Success Metrics
 
 ### Shipped Features
-- [x] 38 tools across 4 personas
+- [x] 41 tools across 4 personas
 - [x] Works with any self-hosted OpenProject instance (API v3)
 - [x] Safe writes (confirm-first, double-confirm destructive)
 - [x] Resilient (retry, clear errors)

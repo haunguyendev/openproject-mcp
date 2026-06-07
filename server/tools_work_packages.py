@@ -28,7 +28,7 @@ def list_work_packages(
         status: "open" (đang mở), "closed" (đã đóng), "all" (tất cả).
         assignee_me: True = chỉ việc được gán cho tôi.
         assignee_id: Lọc theo người được gán (bỏ qua nếu assignee_me=True).
-        type_id: Lọc theo loại (Bug/Feature/Task — xem list_types).
+        type_id: Lọc theo loại (Bug/Feature/Task — xem list_types(project)).
         version_id: Lọc theo version/sprint (xem list_versions).
         search: Từ khóa tìm trong tiêu đề.
         due_within_days: Chỉ việc có hạn trong N ngày tới (gồm cả đã quá hạn).
@@ -111,7 +111,8 @@ def create_work_package(
         project: ID hoặc identifier của dự án.
         subject: Tiêu đề công việc.
         description: Mô tả (hỗ trợ markdown).
-        type_id: ID loại (xem list_types) — để trống dùng loại mặc định.
+        type_id: ID loại (xem list_types(project) để chỉ thấy loại đã bật trong dự án,
+            tránh 422) — để trống dùng loại mặc định.
         assignee_id: ID người được gán (xem list_project_members).
         due_date: Hạn chót, định dạng YYYY-MM-DD.
         start_date: Ngày bắt đầu, YYYY-MM-DD.

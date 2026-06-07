@@ -28,16 +28,17 @@ Without context switching to OpenProject's web interface. This plugin solves tha
 
 ### Functional Requirements
 
-38 MCP tools across 4 personas, grouped by area:
+41 MCP tools across 4 personas, grouped by area:
 
 | Area | Tools | Count |
 |------|-------|-------|
-| Work packages | list, get, create, update, add_comment | 5 |
+| Work packages | list, get, create, update, add_comment, list_activities | 6 |
 | Projects & metadata | list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami | 7 |
 | Coder | list_children, get_relations, create_relation | 3 |
 | Time tracking | log_time, list_time_entries, my_time_summary | 3 |
 | Reports | report_overdue, report_my_tasks, report_project_progress, report_workload, report_status_board, report_time, report_portfolio | 7 |
 | News | list_news, get_news, create_news, update_news, delete_news | 5 |
+| Notifications | list_notifications, mark_notification_read | 2 |
 | Admin | list_users, get_user, list_roles, create_project, update_project, add_member, update_member, remove_member | 8 |
 
 **Notable behaviors:**
@@ -58,7 +59,7 @@ Without context switching to OpenProject's web interface. This plugin solves tha
 
 ## Success Criteria
 
-1. All 38 tools callable via Claude (Claude Code, Desktop, Cowork)
+1. All 41 tools callable via Claude (Claude Code, Desktop, Cowork)
 2. Tools work against any self-hosted OpenProject instance (API v3)
 3. No credentials leaked in logs, output, or committed files
 4. Retry logic prevents duplicate creates; concurrent edits detected via lockVersion
@@ -78,7 +79,7 @@ FastMCP Server (server.py)
     ├── op_client.py (HTTP client, retry, auth)
     ├── formatters.py (JSON trimming, helpers)
     ├── validators.py (relation guards)
-    ├── tools_*.py (8 modules, 38 tools registered)
+    ├── tools_*.py (8 modules, 41 tools registered)
     └── logs → stderr (stdout reserved for MCP protocol)
     ↓ (HTTP Basic Auth)
 OpenProject REST API v3
@@ -103,7 +104,7 @@ OpenProject REST API v3
 
 ## Acceptance Criteria
 
-- [ ] Server starts, connects to OpenProject, runs all 38 tools
+- [ ] Server starts, connects to OpenProject, runs all 41 tools
 - [ ] `whoami` identifies user; token validation on 401
 - [ ] Write tools confirm before action; destructive actions double-confirm
 - [ ] Concurrent edits rejected (optimistic locking via lockVersion)

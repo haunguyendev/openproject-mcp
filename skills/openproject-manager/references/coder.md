@@ -34,6 +34,7 @@ Mục tiêu: quản lý bug/feature của mình, subtask, quan hệ giữa việ
 
 - Tạo subtask: `create_work_package(project, subject, parent_id=...)`. Di chuyển task có sẵn thành con của task khác: `update_work_package(wp_id, lock_version, parent_id=...)` (lấy `lock_version` từ `get_work_package`).
 - Khuyến nghị cha **cùng project** với con. Cấu hình OpenProject có thể từ chối cha khác project — nếu bị từ chối, báo lại rõ và gợi ý cùng project.
+- **Phân tầng theo chuẩn Scrum** (Epic→Story→Task, auto-map type, validate cha-con): xem `references/work-package-hierarchy.md`.
 
 ## Custom fields
 

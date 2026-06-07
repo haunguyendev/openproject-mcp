@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `list_types` accepts an optional `project` argument → queries `/projects/{id}/types` (only types enabled in that project) to avoid 422 when creating a work package with a disabled type. Without it, behaviour is unchanged (global `/types`). No new tool (count stays 41).
+- Scrum type taxonomy skill guidance: new `skills/openproject-manager/references/work-package-hierarchy.md` teaches Epic→Story→Task hierarchy, name-based type auto-mapping (ask-once on ambiguity), guided create recipes, and advisory parent-child validation. Routed for "tạo epic/story/task", "breakdown epic", "dựng backlog" intents; cross-linked from project-manager and coder personas.
+
+### Fixed
+- Stale tool count in `CLAUDE.md` (38 → 41) and its verify command (added missing `tools_notifications` import).
+
 ## [0.5.0] - 2026-06-07
 
 ### Added

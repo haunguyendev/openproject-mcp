@@ -21,6 +21,7 @@ Xác định vai trò từ yêu cầu, rồi **đọc file reference tương ứ
 | "việc của tôi", "log giờ", "comment", "đổi trạng thái việc của tôi", "thông báo của tôi", "cập nhật mới nhất của task" | member | `references/member.md` |
 | "tiến độ", "quá hạn", "workload", "milestone/version", "báo cáo", "portfolio", "export" | project manager | `references/project-manager.md` |
 | "bug", "subtask", "quan hệ/relation", "version/sprint", "ước lượng vs thực tế" | coder | `references/coder.md` |
+| "tạo epic/story/task", "phân rã/breakdown epic", "dựng backlog/sprint plan", "tạo việc theo chuẩn Scrum" | project manager / coder | `references/work-package-hierarchy.md` |
 | "tạo/đóng dự án", "thêm/xóa thành viên", "role", "user" | admin | `references/admin.md` |
 | "tin tức/thông báo (news)", "đăng/sửa/xóa news của dự án" | project manager / admin | `references/project-manager.md` hoặc `references/admin.md` |
 | Cần xuất CSV hoặc dựng báo cáo HTML chuyên nghiệp | (mọi vai trò) | `references/reporting.md` |

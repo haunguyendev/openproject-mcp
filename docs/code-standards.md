@@ -77,13 +77,14 @@ All tools are public functions with `@mcp.tool()` decorator. Naming:
   - Plural: `list_work_packages`, `list_users`, `list_news`
 - **Compound:** `create_relation`, `add_comment`, `add_member`, `remove_member`
 
-**All 38 tools:**
-- `list_work_packages`, `get_work_package`, `create_work_package`, `update_work_package`, `add_comment`
+**All 41 tools:**
+- `list_work_packages`, `get_work_package`, `create_work_package`, `update_work_package`, `add_comment`, `list_activities`
 - `list_projects`, `list_project_members`, `list_versions`, `list_types`, `list_statuses`, `list_priorities`, `whoami`
 - `list_children`, `get_relations`, `create_relation`
 - `log_time`, `list_time_entries`, `my_time_summary`
 - `report_overdue`, `report_my_tasks`, `report_project_progress`, `report_workload`, `report_status_board`, `report_time`, `report_portfolio`
 - `list_news`, `get_news`, `create_news`, `update_news`, `delete_news`
+- `list_notifications`, `mark_notification_read`
 - `list_users`, `get_user`, `list_roles`, `create_project`, `update_project`, `add_member`, `update_member`, `remove_member`
 
 ## Docstring Standard

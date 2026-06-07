@@ -28,7 +28,7 @@ Complete project documentation for the OpenProject MCP server and Claude plugin.
 
 ### For Understanding the System
 **Read in order:**
-1. [`codebase-summary.md`](./codebase-summary.md) — module overview + 38 tools inventory
+1. [`codebase-summary.md`](./codebase-summary.md) — module overview + 41 tools inventory
 2. [`system-architecture.md`](./system-architecture.md) — request flow, auth, idempotency, locking
 3. [`code-standards.md`](./code-standards.md) — naming conventions, tool design patterns
 
@@ -59,7 +59,7 @@ Complete project documentation for the OpenProject MCP server and Claude plugin.
 ## Key Facts
 
 - **Current version:** 0.5.0 (shipped 2026-06-07)
-- **Tools:** 38 across 4 personas (member, project-manager, coder, admin)
+- **Tools:** 41 across 4 personas (member, project-manager, coder, admin)
 - **Server:** Single Python MCP server; modularized (13 files <230 LOC each)
 - **Stack:** FastMCP + httpx; dependencies via PEP 723; run via `uv run --script`
 - **API:** OpenProject REST API v3 (any self-hosted instance)
@@ -132,13 +132,14 @@ When implementing a new feature:
 
 ## Quick Reference
 
-### All 38 Tools (by area)
-- **Work packages:** list_work_packages, get_work_package, create_work_package, update_work_package, add_comment
+### All 41 Tools (by area)
+- **Work packages:** list_work_packages, get_work_package, create_work_package, update_work_package, add_comment, list_activities
 - **Projects & metadata:** list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami
 - **Coder:** list_children, get_relations, create_relation
 - **Time tracking:** log_time, list_time_entries, my_time_summary
 - **Reports:** report_overdue, report_my_tasks, report_project_progress, report_workload, report_status_board, report_time, report_portfolio
 - **News:** list_news, get_news, create_news, update_news, delete_news
+- **Notifications:** list_notifications, mark_notification_read
 - **Admin:** list_users, get_user, list_roles, create_project, update_project, add_member, update_member, remove_member
 
 ### Key Concepts

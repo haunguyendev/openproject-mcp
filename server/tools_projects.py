@@ -64,9 +64,17 @@ def whoami() -> str:
 
 
 @mcp.tool()
-def list_types() -> str:
-    """Liệt kê các loại work package (Task, Bug, Feature...) kèm ID."""
-    data = _req("GET", "/types")
+def list_types(project: str | None = None) -> str:
+    """Liệt kê các loại work package (Task, Bug, Feature, Epic, User story...) kèm ID.
+
+    Args:
+        project: ID/identifier dự án (tùy chọn). Có giá trị → chỉ trả các loại **đã bật**
+            trong dự án đó (tránh lỗi 422 khi tạo việc với loại chưa bật). Để trống →
+            mọi loại toàn hệ thống. Khi sắp tạo việc trong một dự án cụ thể, nên truyền
+            project để chọn đúng loại được phép.
+    """
+    path = f"/projects/{project}/types" if project else "/types"
+    data = _req("GET", path)
     items = [
         {"id": t.get("id"), "name": t.get("name")}
         for t in data.get("_embedded", {}).get("elements", [])

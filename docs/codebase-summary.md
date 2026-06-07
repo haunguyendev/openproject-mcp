@@ -39,7 +39,7 @@ The openproject-mcp project is a single-file MCP server (via PEP 723) split into
 - `my_time_summary` — hours grouped by project/package
 
 ### Project Manager (11 tools)
-- `list_projects`, `list_project_members`, `list_versions`, `list_types`, `list_statuses`, `list_priorities` — metadata
+- `list_projects`, `list_project_members`, `list_versions`, `list_types` (optional `project` → project-scoped types, avoids 422 on disabled types), `list_statuses`, `list_priorities` — metadata
 - `create_work_package`, `update_work_package` — task management
 - `create_news`, `update_news`, `delete_news` — project news
 - `report_workload`, `report_status_board`, `report_time`, `report_portfolio` — analytics
