@@ -1,6 +1,6 @@
 {
   "name": "openproject-mcp",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "license": "MIT",
   "description": "Manage OpenProject with AI — work packages, projects, members, time tracking and progress reports via the REST API v3.",
   "author": {

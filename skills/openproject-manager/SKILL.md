@@ -22,6 +22,7 @@ Xác định vai trò từ yêu cầu, rồi **đọc file reference tương ứ
 | "tiến độ", "quá hạn", "workload", "milestone/version", "báo cáo", "portfolio", "export" | project manager | `references/project-manager.md` |
 | "bug", "subtask", "quan hệ/relation", "version/sprint", "ước lượng vs thực tế" | coder | `references/coder.md` |
 | "tạo/đóng dự án", "thêm/xóa thành viên", "role", "user" | admin | `references/admin.md` |
+| "tin tức/thông báo (news)", "đăng/sửa/xóa news của dự án" | project manager / admin | `references/project-manager.md` hoặc `references/admin.md` |
 | Cần xuất CSV hoặc dựng báo cáo HTML chuyên nghiệp | (mọi vai trò) | `references/reporting.md` |
 
 - Tín hiệu phụ: `whoami.admin=true` → mở khóa hướng dẫn admin; vai trò trong `list_project_members` → ưu tiên manager.
@@ -42,18 +43,19 @@ Xác định vai trò từ yêu cầu, rồi **đọc file reference tương ứ
 | Tầng | Tool | Quy tắc |
 |---|---|---|
 | Đọc | list/get/report/whoami/versions/relations | tự do |
-| Ghi (self/project) | create/update WP, comment, log_time, reassign, create_relation, add_member, update_member | xác nhận tóm tắt trước |
-| Admin/hủy | create/update/archive project, remove_member | xác nhận; **archive & remove_member = xác nhận 2 lần** |
+| Ghi (self/project) | create/update WP, comment, log_time, reassign, create_relation, add_member, update_member, create_news, update_news | xác nhận tóm tắt trước |
+| Admin/hủy | create/update/archive project, remove_member, delete_news | xác nhận; **archive & remove_member & delete_news = xác nhận 2 lần** |
 
 Thiếu quyền → API trả 403; báo người dùng rõ ràng (tài khoản không đủ quyền), không thử vòng vo.
 
-## Danh mục tool (33)
+## Danh mục tool (38)
 
 - **Work packages**: list_work_packages (lọc project/status/assignee/type/version/due_within), get_work_package, create_work_package (có parent_id), update_work_package, add_comment.
 - **Dự án & metadata**: list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami.
 - **Coder**: list_children, get_relations, create_relation.
 - **Time**: log_time, list_time_entries, my_time_summary.
 - **Báo cáo**: report_overdue, report_my_tasks, report_project_progress, report_workload, report_status_board, report_time, report_portfolio.
+- **News**: list_news, get_news, create_news (xác nhận), update_news (xác nhận), delete_news (xác nhận 2 lần).
 - **Admin**: list_users, get_user, list_roles, create_project, update_project, add_member, update_member, remove_member.
 
 ## Phạm vi

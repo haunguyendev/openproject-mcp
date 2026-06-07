@@ -43,5 +43,18 @@ def _fmt_wp(wp: dict) -> dict:
     }
 
 
+def _fmt_news(n: dict) -> dict:
+    """Rút gọn news (thông báo) thành các trường hữu ích."""
+    return {
+        "id": n.get("id"),
+        "title": n.get("title"),
+        "summary": n.get("summary"),
+        "project": _link_title(n, "project"),
+        "author": _link_title(n, "author"),
+        "created_at": n.get("createdAt"),
+        "url": f"{BASE_URL}/news/{n.get('id')}",
+    }
+
+
 def _out(data: Any) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False, default=str)

@@ -22,6 +22,7 @@ Mục tiêu: cấp phát dự án, quản lý thành viên & role, quản lý us
 | "Thêm user U vào dự án X làm role R" | `list_users` + `list_roles` → `add_member(project, user_id, role_ids)` |
 | "Đổi role của thành viên" | `update_member(membership_id, role_ids)` |
 | "Xóa thành viên" | `remove_member(membership_id)` (xác nhận 2 lần) |
+| "Quản lý tin tức / thông báo dự án" | `list_news` · `get_news` · `create_news` (xác nhận) · `update_news` (xác nhận) · `delete_news` (xác nhận 2 lần) — cần quyền "manage news" |
 
 ## Quy tắc
 
