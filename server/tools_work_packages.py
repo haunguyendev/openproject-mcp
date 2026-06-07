@@ -130,8 +130,9 @@ def update_work_package(
     assignee_id: int | None = None,
     due_date: str | None = None,
     done_ratio: int | None = None,
+    parent_id: int | None = None,
 ) -> str:
-    """Cập nhật work package (đổi trạng thái, gán người, sửa hạn...).
+    """Cập nhật work package (đổi trạng thái, gán người, sửa hạn, đổi cha...).
 
     Lấy lock_version mới nhất bằng get_work_package trước khi gọi.
 
@@ -144,6 +145,7 @@ def update_work_package(
         assignee_id: ID người được gán mới.
         due_date: Hạn chót mới, YYYY-MM-DD.
         done_ratio: % hoàn thành (0-100).
+        parent_id: ID work package cha mới (di chuyển task này thành subtask của nó).
     """
     body: dict[str, Any] = {"lockVersion": lock_version, "_links": {}}
     if subject is not None:
@@ -158,6 +160,8 @@ def update_work_package(
         body["_links"]["status"] = {"href": f"/api/v3/statuses/{status_id}"}
     if assignee_id:
         body["_links"]["assignee"] = {"href": f"/api/v3/users/{assignee_id}"}
+    if parent_id:
+        body["_links"]["parent"] = {"href": f"/api/v3/work_packages/{parent_id}"}
     if not body["_links"]:
         del body["_links"]
 

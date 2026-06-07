@@ -5,20 +5,29 @@ from typing import Any
 from app import mcp
 from formatters import _fmt_wp, _href_id, _link_title, _out
 from op_client import _collection, _req
+from validators import RELATION_TYPES, validate_relation
 
-_RELATION_TYPES = (
-    "relates",
-    "duplicates",
-    "duplicated",
-    "blocks",
-    "blocked",
-    "precedes",
-    "follows",
-    "includes",
-    "partof",
-    "requires",
-    "required",
-)
+
+def _fetch_relations(wp_id: int) -> list[dict]:
+    """Lấy quan hệ của một WP, chuẩn hóa thành list dict (dùng chung tool + validator).
+
+    Xin pageSize lớn để chắc chắn lấy hết: validator dựa trên danh sách này để chặn
+    trùng/vòng lặp, nên danh sách bị cắt sẽ làm lọt kiểm tra.
+    """
+    data = _req("GET", f"/work_packages/{wp_id}/relations", params={"pageSize": 1000})
+    items = []
+    for r in data.get("_embedded", {}).get("elements", []):
+        items.append(
+            {
+                "relation_id": r.get("id"),
+                "type": r.get("type"),
+                "to_id": _href_id(r, "to"),
+                "to": _link_title(r, "to"),
+                "from_id": _href_id(r, "from"),
+                "description": r.get("description"),
+            }
+        )
+    return items
 
 
 @mcp.tool()
@@ -44,20 +53,8 @@ def get_relations(wp_id: int) -> str:
     Args:
         wp_id: ID work package.
     """
-    data = _req("GET", f"/work_packages/{wp_id}/relations")
-    items = []
-    for r in data.get("_embedded", {}).get("elements", []):
-        items.append(
-            {
-                "relation_id": r.get("id"),
-                "type": r.get("type"),
-                "to_id": _href_id(r, "to"),
-                "to": _link_title(r, "to"),
-                "from_id": _href_id(r, "from"),
-                "description": r.get("description"),
-            }
-        )
-    return _out({"wp_id": wp_id, "total": data.get("total"), "relations": items})
+    items = _fetch_relations(wp_id)
+    return _out({"wp_id": wp_id, "total": len(items), "relations": items})
 
 
 @mcp.tool()
@@ -76,11 +73,14 @@ def create_relation(
             includes, partof, requires, required, duplicates, duplicated.
         description: Mô tả tùy chọn.
     """
-    if relation_type not in _RELATION_TYPES:
+    if relation_type not in RELATION_TYPES:
         raise ValueError(
             f"relation_type không hợp lệ: {relation_type}. "
-            f"Chọn một trong: {', '.join(_RELATION_TYPES)}."
+            f"Chọn một trong: {', '.join(RELATION_TYPES)}."
         )
+    error = validate_relation(from_id, to_id, relation_type, _fetch_relations(from_id))
+    if error:
+        raise ValueError(error)
     body: dict[str, Any] = {
         "type": relation_type,
         "_links": {"to": {"href": f"/api/v3/work_packages/{to_id}"}},

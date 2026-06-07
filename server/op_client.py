@@ -43,11 +43,20 @@ def _error_message(r: httpx.Response) -> str:
 
 
 def _req(method: str, path: str, *, params: dict | None = None, body: dict | None = None) -> dict:
-    """Gọi API với 1 lần retry cho lỗi tạm thời (429/5xx)."""
+    """Gọi API với 1 lần retry cho lỗi tạm thời (429/5xx).
+
+    POST không idempotent (create_relation, create_work_package, log_time, add_comment,
+    add_member...) → KHÔNG retry để tránh tạo trùng khi mất phản hồi sau khi đã ghi thành công.
+    GET/PATCH/DELETE/PUT idempotent → vẫn retry như cũ.
+    """
     c = _client()
     r = c.request(method, path, params=params, json=body)
-    if r.status_code in _RETRYABLE:
-        retry_after = float(r.headers.get("Retry-After", "1") or 1)
+    if r.status_code in _RETRYABLE and method.upper() != "POST":
+        # Retry-After có thể là số giây hoặc HTTP-date (RFC 7231); date → fallback 1s.
+        try:
+            retry_after = float(r.headers.get("Retry-After", "1") or 1)
+        except ValueError:
+            retry_after = 1.0
         log.warning("HTTP %s từ %s %s — retry sau %.1fs", r.status_code, method, path, retry_after)
         time.sleep(min(retry_after, 10))
         r = c.request(method, path, params=params, json=body)
@@ -60,6 +69,8 @@ def _req(method: str, path: str, *, params: dict | None = None, body: dict | Non
         raise RuntimeError(
             f"HTTP 403: tài khoản không đủ quyền cho thao tác này ({method} {path})."
         )
+    if r.status_code == 404:
+        raise RuntimeError(f"HTTP 404: không tìm thấy {path}. {_error_message(r)}")
     if r.status_code >= 400:
         raise RuntimeError(f"OpenProject trả về HTTP {r.status_code}: {_error_message(r)}")
     return r.json() if r.content else {}
