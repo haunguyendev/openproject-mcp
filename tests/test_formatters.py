@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
-from formatters import _fmt_wp, _href_id, _link_title, iso8601_to_hours  # noqa: E402
+from formatters import _fmt_news, _fmt_wp, _href_id, _link_title, iso8601_to_hours  # noqa: E402
 
 
 def test_iso8601_to_hours():
@@ -56,3 +56,24 @@ def test_fmt_wp():
     assert out["done_ratio"] == 50
     assert out["lock_version"] == 3
     assert out["url"].endswith("/work_packages/7")
+
+
+def test_fmt_news():
+    news = {
+        "id": 12,
+        "title": "Sprint 5 kickoff",
+        "summary": "Bắt đầu sprint mới",
+        "createdAt": "2026-06-07T09:00:00Z",
+        "_links": {
+            "project": {"title": "Website"},
+            "author": {"title": "Nam"},
+        },
+    }
+    out = _fmt_news(news)
+    assert out["id"] == 12
+    assert out["title"] == "Sprint 5 kickoff"
+    assert out["summary"] == "Bắt đầu sprint mới"
+    assert out["project"] == "Website"
+    assert out["author"] == "Nam"
+    assert out["created_at"] == "2026-06-07T09:00:00Z"
+    assert out["url"].endswith("/news/12")

@@ -22,6 +22,7 @@ app (FastMCP instance), và các tools_*.py đăng ký tool lên app.mcp.
 # Import các module tools để side-effect đăng ký @mcp.tool() lên app.mcp.
 import tools_admin  # noqa: F401
 import tools_coder  # noqa: F401
+import tools_news  # noqa: F401
 import tools_projects  # noqa: F401
 import tools_reports  # noqa: F401
 import tools_time  # noqa: F401
@@ -29,7 +30,7 @@ import tools_work_packages  # noqa: F401
 from app import mcp
 from config import API_KEY, BASE_URL, log
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 
 def main() -> None:

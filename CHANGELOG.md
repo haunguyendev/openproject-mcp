@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-06-07
+
+### Added
+- News tools: `list_news`, `get_news`, `create_news`, `update_news`, `delete_news` — full CRUD over the API v3 News endpoint (`/api/v3/news`); routed under project-manager and admin personas. Writes confirm-first; `delete_news` double-confirms. Requires the "manage news" permission (403 otherwise).
+- `_fmt_news` formatter + unit test.
+
 ## [0.3.1] - 2026-06-07
 
 ### Fixed
