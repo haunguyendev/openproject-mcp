@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
-![Version](https://img.shields.io/badge/version-0.3.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.3.1-green.svg)
 
 An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude (Claude Code, Claude Desktop, Cowork) to any self-hosted OpenProject instance via its [REST API v3](https://www.openproject.org/docs/api/). Ask Claude things like *"what's overdue in project Website?"* or *"create a task and assign it to Nam, due Friday"* and it calls the right API for you.
 
@@ -98,14 +98,31 @@ claude --plugin-dir /path/to/openproject-mcp
 /plugin install openproject-mcp@promete-plugins
 ```
 
-The plugin reads your credentials from the environment, so export them once (e.g. in `~/.zshrc` or `~/.bashrc`):
+The plugin reads your credentials from the environment, so provide them with **either** of these options:
+
+**Option A — export in your shell** (e.g. in `~/.zshrc` or `~/.bashrc`):
 
 ```sh
 export OPENPROJECT_URL="https://your-openproject.example.com"
 export OPENPROJECT_API_KEY="your-api-token"
 ```
 
-Open a new terminal (or `source ~/.zshrc`) and run `claude`. Verify with `/mcp` — the `openproject` server should show **connected** — then ask *"Who am I on OpenProject?"*. The first start is a little slow while `uv` downloads dependencies.
+Open a new terminal (or `source ~/.zshrc`) so the variables are in scope before you launch `claude`.
+
+**Option B — Claude Code settings** (keeps your global shell clean). Add an `env` block to `~/.claude/settings.local.json` — the `.local.json` file is git-ignored, so it's the safe place for secrets:
+
+```json
+{
+  "env": {
+    "OPENPROJECT_URL": "https://your-openproject.example.com",
+    "OPENPROJECT_API_KEY": "your-api-token"
+  }
+}
+```
+
+Claude Code applies these to the session and passes them down to the MCP server. Avoid putting the API key in a project-level `.claude/settings.json`, which can be committed by mistake.
+
+Then run `claude`. Verify with `/mcp` — the `openproject` server should show **connected** — then ask *"Who am I on OpenProject?"*. The first start is a little slow while `uv` downloads dependencies.
 
 ### 3. Install for Claude Desktop
 
@@ -161,7 +178,7 @@ Restart the app and ask *"Who am I on OpenProject?"* → Claude calls `whoami`.
 | Symptom | Fix |
 |---|---|
 | `401 Unauthorized` | Token is wrong or expired — generate a new one (My account → Access tokens → API). |
-| `openproject` not in `/mcp` | Ensure `uv` is installed and on `PATH`; for the plugin, confirm `OPENPROJECT_URL`/`OPENPROJECT_API_KEY` are exported in the shell that launched Claude. |
+| `openproject` not in `/mcp` | Ensure `uv` is installed and on `PATH`; for the plugin, confirm `OPENPROJECT_URL`/`OPENPROJECT_API_KEY` are set — either exported in the shell that launched Claude (Option A) or in `~/.claude/settings.local.json` (Option B). |
 | Server won't start | Check the `uv` path with `which uv` and update `"command"` accordingly. |
 | Slow first run | Normal — `uv` is downloading `mcp` and `httpx`; later runs are fast. |
 
