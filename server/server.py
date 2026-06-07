@@ -27,15 +27,18 @@ from typing import Any
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 BASE_URL = os.environ.get("OPENPROJECT_URL", "").rstrip("/")
 API_KEY = os.environ.get("OPENPROJECT_API_KEY", "")
 TIMEOUT = float(os.environ.get("OPENPROJECT_TIMEOUT_SECONDS", "30"))
 
 # Log ra stderr — stdout dành riêng cho giao thức MCP (stdio transport).
-logging.basicConfig(stream=sys.stderr, level=logging.INFO,
-                    format="%(asctime)s %(levelname)s openproject-mcp: %(message)s")
+logging.basicConfig(
+    stream=sys.stderr,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s openproject-mcp: %(message)s",
+)
 log = logging.getLogger(__name__)
 
 mcp = FastMCP("openproject")
@@ -45,6 +48,7 @@ _http: httpx.Client | None = None
 
 
 # ---------------------------------------------------------------- helpers
+
 
 def _client() -> httpx.Client:
     """Trả về HTTP client dùng chung (tái sử dụng kết nối)."""
@@ -74,15 +78,13 @@ def _error_message(r: httpx.Response) -> str:
         return r.text[:500]
 
 
-def _req(method: str, path: str, *, params: dict | None = None,
-         body: dict | None = None) -> dict:
+def _req(method: str, path: str, *, params: dict | None = None, body: dict | None = None) -> dict:
     """Gọi API với 1 lần retry cho lỗi tạm thời (429/5xx)."""
     c = _client()
     r = c.request(method, path, params=params, json=body)
     if r.status_code in _RETRYABLE:
         retry_after = float(r.headers.get("Retry-After", "1") or 1)
-        log.warning("HTTP %s từ %s %s — retry sau %.1fs",
-                    r.status_code, method, path, retry_after)
+        log.warning("HTTP %s từ %s %s — retry sau %.1fs", r.status_code, method, path, retry_after)
         time.sleep(min(retry_after, 10))
         r = c.request(method, path, params=params, json=body)
     if r.status_code == 401:
@@ -122,9 +124,14 @@ def _fmt_wp(wp: dict) -> dict:
     }
 
 
-def _collection(path: str, filters: list | None = None, page_size: int = 25,
-                offset: int = 1, sort: list | None = None,
-                extra_params: dict | None = None) -> dict:
+def _collection(
+    path: str,
+    filters: list | None = None,
+    page_size: int = 25,
+    offset: int = 1,
+    sort: list | None = None,
+    extra_params: dict | None = None,
+) -> dict:
     params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
     if filters:
         params["filters"] = json.dumps(filters)
@@ -141,10 +148,16 @@ def _out(data: Any) -> str:
 
 # ---------------------------------------------------------------- work packages
 
+
 @mcp.tool()
-def list_work_packages(project: str | None = None, status: str = "open",
-                       assignee_me: bool = False, search: str | None = None,
-                       page_size: int = 25, offset: int = 1) -> str:
+def list_work_packages(
+    project: str | None = None,
+    status: str = "open",
+    assignee_me: bool = False,
+    search: str | None = None,
+    page_size: int = 25,
+    offset: int = 1,
+) -> str:
     """Liệt kê/tìm kiếm work packages (task, bug, feature...).
 
     Args:
@@ -164,8 +177,7 @@ def list_work_packages(project: str | None = None, status: str = "open",
         filters.append({"subject": {"operator": "~", "values": [search]}})
 
     path = f"/projects/{project}/work_packages" if project else "/work_packages"
-    data = _collection(path, filters, page_size, offset,
-                       sort=[["updatedAt", "desc"]])
+    data = _collection(path, filters, page_size, offset, sort=[["updatedAt", "desc"]])
     items = [_fmt_wp(w) for w in data.get("_embedded", {}).get("elements", [])]
     return _out({"total": data.get("total"), "count": len(items), "items": items})
 
@@ -188,10 +200,16 @@ def get_work_package(wp_id: int) -> str:
 
 
 @mcp.tool()
-def create_work_package(project: str, subject: str, description: str = "",
-                        type_id: int | None = None, assignee_id: int | None = None,
-                        due_date: str | None = None, start_date: str | None = None,
-                        priority_id: int | None = None) -> str:
+def create_work_package(
+    project: str,
+    subject: str,
+    description: str = "",
+    type_id: int | None = None,
+    assignee_id: int | None = None,
+    due_date: str | None = None,
+    start_date: str | None = None,
+    priority_id: int | None = None,
+) -> str:
     """Tạo work package mới trong một dự án.
 
     Args:
@@ -225,10 +243,16 @@ def create_work_package(project: str, subject: str, description: str = "",
 
 
 @mcp.tool()
-def update_work_package(wp_id: int, lock_version: int, subject: str | None = None,
-                        description: str | None = None, status_id: int | None = None,
-                        assignee_id: int | None = None, due_date: str | None = None,
-                        done_ratio: int | None = None) -> str:
+def update_work_package(
+    wp_id: int,
+    lock_version: int,
+    subject: str | None = None,
+    description: str | None = None,
+    status_id: int | None = None,
+    assignee_id: int | None = None,
+    due_date: str | None = None,
+    done_ratio: int | None = None,
+) -> str:
     """Cập nhật work package (đổi trạng thái, gán người, sửa hạn...).
 
     Lấy lock_version mới nhất bằng get_work_package trước khi gọi.
@@ -271,12 +295,16 @@ def add_comment(wp_id: int, comment: str) -> str:
         wp_id: ID work package.
         comment: Nội dung bình luận (markdown).
     """
-    _req("POST", f"/work_packages/{wp_id}/activities",
-         body={"comment": {"format": "markdown", "raw": comment}})
+    _req(
+        "POST",
+        f"/work_packages/{wp_id}/activities",
+        body={"comment": {"format": "markdown", "raw": comment}},
+    )
     return _out({"ok": True, "wp_id": wp_id})
 
 
 # ---------------------------------------------------------------- projects & members
+
 
 @mcp.tool()
 def list_projects(active_only: bool = True) -> str:
@@ -324,18 +352,27 @@ def list_project_members(project: str) -> str:
 def whoami() -> str:
     """Xem thông tin tài khoản hiện tại (kiểm tra kết nối + lấy user ID của tôi)."""
     me = _req("GET", "/users/me")
-    return _out({"id": me.get("id"), "name": me.get("name"),
-                 "login": me.get("login"), "email": me.get("email")})
+    return _out(
+        {
+            "id": me.get("id"),
+            "name": me.get("name"),
+            "login": me.get("login"),
+            "email": me.get("email"),
+        }
+    )
 
 
 # ---------------------------------------------------------------- metadata
+
 
 @mcp.tool()
 def list_types() -> str:
     """Liệt kê các loại work package (Task, Bug, Feature...) kèm ID."""
     data = _req("GET", "/types")
-    items = [{"id": t.get("id"), "name": t.get("name")}
-             for t in data.get("_embedded", {}).get("elements", [])]
+    items = [
+        {"id": t.get("id"), "name": t.get("name")}
+        for t in data.get("_embedded", {}).get("elements", [])
+    ]
     return _out(items)
 
 
@@ -343,8 +380,10 @@ def list_types() -> str:
 def list_statuses() -> str:
     """Liệt kê các trạng thái (New, In progress, Closed...) kèm ID."""
     data = _req("GET", "/statuses")
-    items = [{"id": s.get("id"), "name": s.get("name"), "is_closed": s.get("isClosed")}
-             for s in data.get("_embedded", {}).get("elements", [])]
+    items = [
+        {"id": s.get("id"), "name": s.get("name"), "is_closed": s.get("isClosed")}
+        for s in data.get("_embedded", {}).get("elements", [])
+    ]
     return _out(items)
 
 
@@ -352,16 +391,24 @@ def list_statuses() -> str:
 def list_priorities() -> str:
     """Liệt kê các mức độ ưu tiên (Low, Normal, High...) kèm ID."""
     data = _req("GET", "/priorities")
-    items = [{"id": p.get("id"), "name": p.get("name")}
-             for p in data.get("_embedded", {}).get("elements", [])]
+    items = [
+        {"id": p.get("id"), "name": p.get("name")}
+        for p in data.get("_embedded", {}).get("elements", [])
+    ]
     return _out(items)
 
 
 # ---------------------------------------------------------------- time tracking
 
+
 @mcp.tool()
-def log_time(wp_id: int, hours: float, spent_on: str | None = None,
-             comment: str = "", activity_id: int | None = None) -> str:
+def log_time(
+    wp_id: int,
+    hours: float,
+    spent_on: str | None = None,
+    comment: str = "",
+    activity_id: int | None = None,
+) -> str:
     """Ghi nhận giờ làm việc (time entry) cho một work package.
 
     Args:
@@ -380,14 +427,19 @@ def log_time(wp_id: int, hours: float, spent_on: str | None = None,
     if activity_id:
         body["_links"]["activity"] = {"href": f"/api/v3/time_entries/activities/{activity_id}"}
     te = _req("POST", "/time_entries", body=body)
-    return _out({"created": {"id": te.get("id"), "hours": te.get("hours"),
-                             "spent_on": te.get("spentOn")}})
+    return _out(
+        {"created": {"id": te.get("id"), "hours": te.get("hours"), "spent_on": te.get("spentOn")}}
+    )
 
 
 @mcp.tool()
-def list_time_entries(project: str | None = None, user_me: bool = True,
-                      from_date: str | None = None, to_date: str | None = None,
-                      page_size: int = 50) -> str:
+def list_time_entries(
+    project: str | None = None,
+    user_me: bool = True,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    page_size: int = 50,
+) -> str:
     """Xem các time entries đã ghi nhận.
 
     Args:
@@ -422,6 +474,7 @@ def list_time_entries(project: str | None = None, user_me: bool = True,
 
 # ---------------------------------------------------------------- reports
 
+
 @mcp.tool()
 def report_overdue(project: str | None = None) -> str:
     """Báo cáo việc QUÁ HẠN: các work package đang mở có due date đã qua.
@@ -446,13 +499,11 @@ def report_my_tasks() -> str:
         {"status": {"operator": "o", "values": []}},
         {"assignee": {"operator": "=", "values": ["me"]}},
     ]
-    data = _collection("/work_packages", filters, page_size=100,
-                       sort=[["dueDate", "asc"]])
+    data = _collection("/work_packages", filters, page_size=100, sort=[["dueDate", "asc"]])
     items = [_fmt_wp(w) for w in data.get("_embedded", {}).get("elements", [])]
     today = date.today().isoformat()
     overdue = [i for i in items if i["due_date"] and i["due_date"] < today]
-    return _out({"total_open": data.get("total"), "overdue_count": len(overdue),
-                 "items": items})
+    return _out({"total_open": data.get("total"), "overdue_count": len(overdue), "items": items})
 
 
 @mcp.tool()
@@ -464,32 +515,38 @@ def report_project_progress(project: str) -> str:
     """
     path = f"/projects/{project}/work_packages"
     all_data = _collection(path, page_size=1)
-    open_data = _collection(path, [{"status": {"operator": "o", "values": []}}],
-                            page_size=200)
+    open_data = _collection(path, [{"status": {"operator": "o", "values": []}}], page_size=200)
     open_items = [_fmt_wp(w) for w in open_data.get("_embedded", {}).get("elements", [])]
 
     today = date.today().isoformat()
     by_assignee: dict[str, int] = {}
     overdue = 0
     for i in open_items:
-        by_assignee[i["assignee"] or "(chưa gán)"] = by_assignee.get(i["assignee"] or "(chưa gán)", 0) + 1
+        name = i["assignee"] or "(chưa gán)"
+        by_assignee[name] = by_assignee.get(name, 0) + 1
         if i["due_date"] and i["due_date"] < today:
             overdue += 1
 
     total = all_data.get("total", 0)
     open_total = open_data.get("total", 0)
-    return _out({
-        "project": project,
-        "total": total,
-        "open": open_total,
-        "closed": total - open_total,
-        "overdue": overdue,
-        "open_by_assignee": dict(sorted(by_assignee.items(), key=lambda x: -x[1])),
-        "percent_closed": round((total - open_total) / total * 100, 1) if total else None,
-    })
+    return _out(
+        {
+            "project": project,
+            "total": total,
+            "open": open_total,
+            "closed": total - open_total,
+            "overdue": overdue,
+            "open_by_assignee": dict(sorted(by_assignee.items(), key=lambda x: -x[1])),
+            "percent_closed": round((total - open_total) / total * 100, 1) if total else None,
+        }
+    )
 
 
 if __name__ == "__main__":
-    log.info("openproject-mcp v%s — base_url=%s, api_key_set=%s",
-             __version__, BASE_URL or "(chưa cấu hình)", bool(API_KEY))
+    log.info(
+        "openproject-mcp v%s — base_url=%s, api_key_set=%s",
+        __version__,
+        BASE_URL or "(chưa cấu hình)",
+        bool(API_KEY),
+    )
     mcp.run()

@@ -2,10 +2,11 @@
 
 > Manage your self-hosted **OpenProject** with AI — view, create and update work packages, assign people, log time, and get progress reports, all from natural language.
 
+[![CI](https://github.com/haunguyendev/openproject-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/haunguyendev/openproject-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
-![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.2.1-green.svg)
 
 An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude (Claude Code, Claude Desktop, Cowork) to any self-hosted OpenProject instance via its [REST API v3](https://www.openproject.org/docs/api/). Ask Claude things like *"what's overdue in project Website?"* or *"create a task and assign it to Nam, due Friday"* and it calls the right API for you.
 
@@ -165,6 +166,7 @@ Restart the app and ask *"Who am I on OpenProject?"* → Claude calls `whoami`.
 - Keys are never printed to logs or tool output.
 - If a key is ever exposed (pasted into a chat, committed by mistake), revoke it immediately at **My account → Access tokens** and generate a new one.
 - Verify no secret leaked before pushing: `git grep -iE "api[_-]?key.*[a-f0-9]{40}" $(git rev-list --all)` should return nothing.
+- To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Development
 
@@ -177,7 +179,7 @@ Tool-design conventions: clear verb names, docstrings that describe every parame
 
 ## Contributing
 
-Issues and pull requests are welcome. Please:
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and conventions, and please follow the [Code of Conduct](CODE_OF_CONDUCT.md). In short:
 
 1. Keep the server a single, dependency-light file (PEP 723 inline metadata).
 2. Run `uvx ruff check server/` and `uvx ruff format server/` before opening a PR.

@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint & syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Ruff lint
+        run: uvx ruff check server/
+
+      - name: Ruff format check
+        run: uvx ruff format --check server/
+
+      - name: Python syntax check
+        run: python -m py_compile server/server.py
+
+      - name: Validate JSON config
+        run: |
+          for f in .mcp.json .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+            python -c "import json; json.load(open('$f')); print('OK', '$f')"
+          done
