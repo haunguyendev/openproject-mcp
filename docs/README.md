@@ -28,7 +28,7 @@ Complete project documentation for the OpenProject MCP server and Claude plugin.
 
 ### For Understanding the System
 **Read in order:**
-1. [`codebase-summary.md`](./codebase-summary.md) — module overview + 41 tools inventory
+1. [`codebase-summary.md`](./codebase-summary.md) — module overview + 44 tools inventory
 2. [`system-architecture.md`](./system-architecture.md) — request flow, auth, idempotency, locking
 3. [`code-standards.md`](./code-standards.md) — naming conventions, tool design patterns
 
@@ -58,8 +58,8 @@ Complete project documentation for the OpenProject MCP server and Claude plugin.
 
 ## Key Facts
 
-- **Current version:** 0.5.0 (shipped 2026-06-07)
-- **Tools:** 41 across 4 personas (member, project-manager, coder, admin)
+- **Current version:** 0.6.0 (shipped 2026-06-07)
+- **Tools:** 44 across 4 personas (member, project-manager, coder, admin)
 - **Server:** Single Python MCP server; modularized (13 files <230 LOC each)
 - **Stack:** FastMCP + httpx; dependencies via PEP 723; run via `uv run --script`
 - **API:** OpenProject REST API v3 (any self-hosted instance)

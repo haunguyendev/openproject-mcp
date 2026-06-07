@@ -4,7 +4,7 @@
 
 **openproject-mcp** is an MCP (Model Context Protocol) server and Claude plugin that bridges Claude AI with self-hosted OpenProject instances. It enables natural-language project management through a comprehensive set of tools for work packages, projects, members, time tracking, and reporting.
 
-**Version:** 0.5.0  
+**Version:** 0.6.0  
 **Status:** Stable, active development  
 **License:** MIT
 
@@ -28,7 +28,7 @@ Without context switching to OpenProject's web interface. This plugin solves tha
 
 ### Functional Requirements
 
-41 MCP tools across 4 personas, grouped by area:
+44 MCP tools across 4 personas, grouped by area:
 
 | Area | Tools | Count |
 |------|-------|-------|
@@ -59,7 +59,7 @@ Without context switching to OpenProject's web interface. This plugin solves tha
 
 ## Success Criteria
 
-1. All 41 tools callable via Claude (Claude Code, Desktop, Cowork)
+1. All 44 tools callable via Claude (Claude Code, Desktop, Cowork)
 2. Tools work against any self-hosted OpenProject instance (API v3)
 3. No credentials leaked in logs, output, or committed files
 4. Retry logic prevents duplicate creates; concurrent edits detected via lockVersion
@@ -79,7 +79,7 @@ FastMCP Server (server.py)
     ├── op_client.py (HTTP client, retry, auth)
     ├── formatters.py (JSON trimming, helpers)
     ├── validators.py (relation guards)
-    ├── tools_*.py (8 modules, 41 tools registered)
+    ├── tools_*.py (9 modules, 44 tools registered)
     └── logs → stderr (stdout reserved for MCP protocol)
     ↓ (HTTP Basic Auth)
 OpenProject REST API v3
@@ -104,7 +104,7 @@ OpenProject REST API v3
 
 ## Acceptance Criteria
 
-- [ ] Server starts, connects to OpenProject, runs all 41 tools
+- [ ] Server starts, connects to OpenProject, runs all 44 tools
 - [ ] `whoami` identifies user; token validation on 401
 - [ ] Write tools confirm before action; destructive actions double-confirm
 - [ ] Concurrent edits rejected (optimistic locking via lockVersion)

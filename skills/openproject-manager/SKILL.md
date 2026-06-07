@@ -34,7 +34,7 @@ Xác định vai trò từ yêu cầu, rồi **đọc file reference tương ứ
 - **Đọc tự do**: list/get/report/whoami/list_versions/get_relations/list_activities/list_notifications... gọi thoải mái.
 - **mark_notification_read**: ghi nhẹ, cá nhân, vô hại → không cần xác nhận.
 - **Ghi phải xác nhận trước**: create/update/add_comment/log_time/create_relation/add_member... → tóm tắt payload (việc gì, dự án nào, ai, khi nào) và chờ người dùng đồng ý, trừ khi họ đã nêu đủ và yêu cầu rõ ràng.
-- **Cập nhật work package**: LUÔN gọi `get_work_package` lấy `lock_version` mới nhất rồi truyền vào `update_work_package`; gặp 409 → lấy lại lock_version và thử lại 1 lần.
+- **Cập nhật work package**: KHÔNG cần lấy `lock_version` thủ công — để trống, `update_work_package` tự lấy lockVersion mới nhất và tự thử lại 1 lần khi 409. Nhận `status`/`priority` theo tên. Đổi/đóng nhiều việc → dùng `bulk_update_work_packages`.
 - **Tên → ID**: tra qua `list_projects`, `list_project_members`, `list_types`, `list_statuses`, `list_priorities`, `list_versions`, `list_roles`; nhớ trong phiên để khỏi gọi lại.
 - **Ngày**: truyền tool dạng `YYYY-MM-DD`; nói với người dùng dạng tự nhiên.
 - **Trình bày**: ưu tiên việc quá hạn lên đầu, kèm `url` để mở trực tiếp.

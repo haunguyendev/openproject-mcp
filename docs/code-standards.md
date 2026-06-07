@@ -8,20 +8,29 @@ server/
 ├── server.py              # Entry point, version, main()
 ├── app.py                 # Shared FastMCP instance
 ├── config.py              # Env vars, logging
-├── op_client.py           # HTTP client, auth, retry, pagination
+├── op_client.py           # HTTP client, auth, retry, ConflictError, patch_wp_with_lock
 ├── formatters.py          # JSON trimming, time conversion
 ├── validators.py          # Relation guards
-├── tools_work_packages.py # WP CRUD + comments
+├── resolvers.py           # Name→ID resolution (status/type/priority)
+├── custom_fields.py       # Custom field read/write helpers
+├── bulk_helpers.py        # Pure bulk result envelope (summarize_bulk)
+├── tools_work_packages.py # WP CRUD + comments + delete
+├── tools_bulk.py          # Bulk update/create
 ├── tools_projects.py      # Projects, members, metadata
 ├── tools_coder.py         # Hierarchy, relations
 ├── tools_time.py          # Time tracking
 ├── tools_reports.py       # 7 report tools
 ├── tools_news.py          # News CRUD
+├── tools_notifications.py # Personal notifications
 └── tools_admin.py         # Users, roles, admin actions
 
 tests/
 ├── test_formatters.py     # Unit tests for formatters
-└── test_validators.py     # Unit tests for validators
+├── test_validators.py     # Unit tests for validators
+├── test_custom_fields.py  # Unit tests for custom fields
+├── test_resolvers.py      # Unit tests for name→ID matcher
+├── test_op_client_lock.py # Unit tests for patch_wp_with_lock (monkeypatched)
+└── test_bulk.py           # Unit tests for summarize_bulk
 
 skills/openproject-manager/
 ├── SKILL.md               # Router, persona routing logic
@@ -47,13 +56,11 @@ skills/openproject-manager/
 ### File Size Limits
 
 - **Target:** <200 LOC per file
-- **Hard limit:** <230 LOC per file
 - **Rationale:** Optimal LLM context window, easier navigation, single responsibility
 
 **Current status:**
-- All files under 230 LOC
-- Average: ~105 LOC (1,361 total / 13 files)
-- Largest: `tools_reports.py` (226 LOC) — near limit but justified by 7 report tools
+- Average: ~102 LOC (~1,841 total / 18 files)
+- Over target (accepted, cohesive tool modules): `tools_work_packages.py` (272), `tools_reports.py` (226), `tools_admin.py` (205)
 
 ## Naming Conventions
 
@@ -77,8 +84,9 @@ All tools are public functions with `@mcp.tool()` decorator. Naming:
   - Plural: `list_work_packages`, `list_users`, `list_news`
 - **Compound:** `create_relation`, `add_comment`, `add_member`, `remove_member`
 
-**All 41 tools:**
-- `list_work_packages`, `get_work_package`, `create_work_package`, `update_work_package`, `add_comment`, `list_activities`
+**All 44 tools:**
+- `list_work_packages`, `get_work_package`, `create_work_package`, `update_work_package`, `add_comment`, `list_activities`, `delete_work_package`
+- `bulk_update_work_packages`, `bulk_create_work_packages`
 - `list_projects`, `list_project_members`, `list_versions`, `list_types`, `list_statuses`, `list_priorities`, `whoami`
 - `list_children`, `get_relations`, `create_relation`
 - `log_time`, `list_time_entries`, `my_time_summary`
@@ -343,7 +351,7 @@ uvx ruff format --check server/
 python -m py_compile server/*.py
 
 # Unit tests
-uv run --with pytest pytest -q tests/
+uv run --with pytest --with httpx pytest -q tests/
 ```
 
 ## Versioning & Release Checklist
@@ -401,9 +409,9 @@ Before releasing a new version:
    - Sent only over HTTPS (OpenProject enforces)
 
 4. **Optimistic locking**
-   - All PATCH writes require current `lockVersion`
-   - Prevent lost updates in concurrent scenarios
-   - `update_work_package(id, lock_version, ...)` signature
+   - PATCH writes carry the current `lockVersion`; `update_work_package` auto-fetches it when omitted and retries once on 409 (`op_client.patch_wp_with_lock`)
+   - Prevent lost updates in concurrent scenarios (auto-retry favors the AI write; single-actor trade-off)
+   - `update_work_package(id, lock_version=None, ...)` signature
 
 5. **Permission-aware**
    - Tools fail gracefully with 403 Forbidden

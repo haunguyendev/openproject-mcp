@@ -9,7 +9,7 @@ Mục tiêu: xem việc được giao, cập nhật tiến độ, log giờ, tra
 | "Hôm nay tôi làm gì?" / "việc của tôi" | `report_my_tasks` |
 | "Việc của tôi sắp đến hạn (tuần này)?" | `list_work_packages(assignee_me=true, due_within_days=7)` |
 | "Tìm task X của tôi" | `list_work_packages(assignee_me=true, search="X")` |
-| "Chuyển #123 sang In progress" | `list_statuses` → `get_work_package(123)` (lấy lock_version) → `update_work_package(123, lock_version, status_id=...)` |
+| "Chuyển #123 sang In progress" | `update_work_package(123, status="In progress")` (nhận tên, tự lấy lock_version) |
 | "Đánh dấu #123 xong" | `update_work_package(..., status_id=<Closed>)` hoặc `done_ratio=100` |
 | "Log 2 tiếng cho #123" | `log_time(wp_id=123, hours=2)` (ngày mặc định hôm nay) |
 | "Tuần này tôi log bao nhiêu giờ?" | `my_time_summary(from_date, to_date)` |

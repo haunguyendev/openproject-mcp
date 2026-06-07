@@ -41,14 +41,27 @@ Tên type do admin cấu hình từng instance, có thể không trùng tên chu
 
 Tất cả thao tác tạo = GHI → tóm tắt và xác nhận trước (theo quy tắc chung ở `SKILL.md`).
 
+`create_work_package` nhận **type theo tên** (`type="Epic"`) và tự khớp theo loại đã bật trong dự án — khỏi phải tra `type_id` thủ công. Vẫn dùng quy trình auto-map ở trên khi tên type của instance lạ/mơ hồ (hỏi xác nhận 1 lần).
+
 | Việc | Các bước |
 |---|---|
-| Tạo Epic | map type Epic → `create_work_package(project, subject, type_id=<epic>)` (không `parent_id`). |
-| Tạo Story dưới Epic #X | `get_work_package(X)` xác minh #X là Epic → `create_work_package(project, subject, type_id=<story>, parent_id=X)`. |
-| Tạo Task dưới Story #Y | `get_work_package(Y)` xác minh #Y là Story/Feature → `create_work_package(project, subject, type_id=<task>, parent_id=Y)`. |
-| Breakdown Epic #X | tạo nhiều Story dưới #X: **tóm tắt cây (Epic → các Story dự kiến) và xác nhận MỘT lần** trước khi chạy loạt. |
+| Tạo Epic | `create_work_package(project, subject, type="Epic")` (không `parent_id`). |
+| Tạo Story dưới Epic #X | `get_work_package(X)` xác minh #X là Epic → `create_work_package(project, subject, type="User story", parent_id=X)`. |
+| Tạo Task dưới Story #Y | `get_work_package(Y)` xác minh #Y là Story/Feature → `create_work_package(project, subject, type="Task", parent_id=Y)`. |
+| Breakdown Epic #X | tạo nhiều Story dưới #X bằng `bulk_create_work_packages(project, items=[{subject, type:"User story", parent_id:X}, ...])`: **tóm tắt cây và xác nhận MỘT lần** trước khi chạy. |
 
 Cơ chế subtask/parent, re-parent (`update_work_package(parent_id=...)`), và quy tắc xác nhận hàng loạt: xem `references/coder.md` (mục "Subtask / parent" và "Quy tắc chung") — **không lặp lại ở đây**.
+
+## Dựng cả cây trong vài call (bulk theo tầng)
+
+Không có một tool "tạo cả cây" — dựng **theo tầng**, dùng id trả về của tầng trên làm `parent_id` cho tầng dưới (vì `bulk_create_work_packages` là **phẳng**: `parent_id` chỉ trỏ việc đã tồn tại, không tham chiếu việc tạo cùng lần gọi):
+
+1. Tạo Epic: `create_work_package(project, subject, type="Epic")` → lấy `id` (vd #500).
+2. Tạo loạt Story dưới Epic: `bulk_create_work_packages(project, items=[{subject, type:"User story", parent_id:500}, ...])` → lấy các id Story từ `created[]`.
+3. Tạo loạt Task dưới mỗi Story: lặp `bulk_create_work_packages` với `parent_id` là id Story tương ứng.
+4. Quan hệ chéo (blocks/precedes giữa các việc): thêm bằng `create_relation` sau khi đã có id (xem `references/coder.md`).
+
+Tóm tắt toàn cây + xác nhận **một lần** trước khi chạy; sau mỗi loạt đọc `failed` để vá phần lỗi (tạo lại riêng các item thất bại).
 
 ## Validate cha-con (advisory)
 

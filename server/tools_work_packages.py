@@ -5,7 +5,8 @@ from typing import Any
 from app import mcp
 from custom_fields import apply_custom_fields, extract_custom_fields
 from formatters import _fmt_activity, _fmt_wp, _out
-from op_client import _collection, _req
+from op_client import _collection, _req, patch_wp_with_lock
+from resolvers import resolve_priority_id, resolve_status_id, resolve_type_id
 
 
 @mcp.tool()
@@ -97,30 +98,46 @@ def create_work_package(
     project: str,
     subject: str,
     description: str = "",
+    type: str | None = None,
     type_id: int | None = None,
     assignee_id: int | None = None,
     due_date: str | None = None,
     start_date: str | None = None,
+    priority: str | None = None,
     priority_id: int | None = None,
     parent_id: int | None = None,
     custom_fields: dict | None = None,
 ) -> str:
     """Tạo work package mới trong một dự án.
 
+    Nhận tên hoặc ID cho type/priority: truyền type="Epic" thay vì tra type_id.
+    type theo tên tự lọc theo loại đã bật trong dự án (project-scoped, tránh 422).
+    KHÔNG truyền đồng thời cả tên lẫn ID cho cùng một trường.
+
     Args:
         project: ID hoặc identifier của dự án.
         subject: Tiêu đề công việc.
         description: Mô tả (hỗ trợ markdown).
-        type_id: ID loại (xem list_types(project) để chỉ thấy loại đã bật trong dự án,
-            tránh 422) — để trống dùng loại mặc định.
+        type: Tên loại (vd "Epic", "Task") — tool tự tra ID theo loại đã bật trong dự án.
+        type_id: ID loại (xem list_types(project)). Dùng thay cho type — để trống dùng mặc định.
         assignee_id: ID người được gán (xem list_project_members).
         due_date: Hạn chót, định dạng YYYY-MM-DD.
         start_date: Ngày bắt đầu, YYYY-MM-DD.
-        priority_id: ID độ ưu tiên.
+        priority: Tên độ ưu tiên (vd "High") — tool tự tra ID.
+        priority_id: ID độ ưu tiên (xem list_priorities). Dùng thay cho priority.
         parent_id: ID work package cha (tạo subtask bên dưới nó).
         custom_fields: Custom field theo ID, vd {"1": "Foo", "2": 42}. Trường liên kết
             (user/version/list) truyền href, vd {"3": "/api/v3/users/14"}.
     """
+    if type and type_id:
+        raise ValueError("Chỉ truyền type HOẶC type_id, không cả hai.")
+    if priority and priority_id:
+        raise ValueError("Chỉ truyền priority HOẶC priority_id, không cả hai.")
+    if type:
+        type_id = resolve_type_id(type, project)
+    if priority:
+        priority_id = resolve_priority_id(priority)
+
     body: dict[str, Any] = {
         "subject": subject,
         "description": {"format": "markdown", "raw": description},
@@ -148,34 +165,58 @@ def create_work_package(
 @mcp.tool()
 def update_work_package(
     wp_id: int,
-    lock_version: int,
+    lock_version: int | None = None,
     subject: str | None = None,
     description: str | None = None,
+    status: str | None = None,
     status_id: int | None = None,
+    priority: str | None = None,
+    priority_id: int | None = None,
     assignee_id: int | None = None,
     due_date: str | None = None,
     done_ratio: int | None = None,
     parent_id: int | None = None,
     custom_fields: dict | None = None,
 ) -> str:
-    """Cập nhật work package (đổi trạng thái, gán người, sửa hạn, đổi cha, custom field...).
+    """Cập nhật work package (đổi trạng thái, độ ưu tiên, gán người, sửa hạn, đổi cha...).
 
-    Lấy lock_version mới nhất bằng get_work_package trước khi gọi.
+    lock_version để trống → tool tự lấy lockVersion mới nhất. Nếu gặp xung đột 409
+    (vd rollup từ subtask/relation bump version cha), tool tự lấy lại lockVersion và
+    thử lại MỘT lần — bạn KHÔNG cần get_work_package thủ công trước khi gọi.
+    Lưu ý: retry tự động có thể ghi đè thay đổi đồng thời của người khác giữa hai lần thử.
+
+    Nhận tên hoặc ID cho status/priority: truyền status="In progress" thay vì status_id.
+    KHÔNG truyền đồng thời cả tên lẫn ID cho cùng một trường.
 
     Args:
         wp_id: ID work package.
-        lock_version: lockVersion hiện tại (chống ghi đè lẫn nhau).
+        lock_version: lockVersion hiện tại. Để trống = tool tự lấy + tự retry khi 409.
         subject: Tiêu đề mới.
         description: Mô tả mới (markdown).
-        status_id: ID trạng thái mới (xem list_statuses).
+        status: Tên trạng thái mới (vd "In progress") — tool tự tra ID.
+        status_id: ID trạng thái mới (xem list_statuses). Dùng thay cho status.
+        priority: Tên độ ưu tiên mới (vd "High") — tool tự tra ID.
+        priority_id: ID độ ưu tiên mới (xem list_priorities). Dùng thay cho priority.
         assignee_id: ID người được gán mới.
         due_date: Hạn chót mới, YYYY-MM-DD.
         done_ratio: % hoàn thành (0-100).
         parent_id: ID work package cha mới (di chuyển task này thành subtask của nó).
         custom_fields: Custom field theo ID, vd {"1": "Foo", "2": 42}. Trường liên kết
             truyền href, vd {"3": "/api/v3/users/14"}.
+
+    Đổi loại (type) không hỗ trợ ở đây — đặt type lúc tạo (create_work_package) hoặc đổi
+    trên web, vì loại phụ thuộc dự án nên không tra theo tên an toàn ở update.
     """
-    body: dict[str, Any] = {"lockVersion": lock_version, "_links": {}}
+    if status and status_id:
+        raise ValueError("Chỉ truyền status HOẶC status_id, không cả hai.")
+    if priority and priority_id:
+        raise ValueError("Chỉ truyền priority HOẶC priority_id, không cả hai.")
+    if status:
+        status_id = resolve_status_id(status)
+    if priority:
+        priority_id = resolve_priority_id(priority)
+
+    body: dict[str, Any] = {"_links": {}}
     if subject is not None:
         body["subject"] = subject
     if description is not None:
@@ -186,6 +227,8 @@ def update_work_package(
         body["percentageDone"] = done_ratio
     if status_id:
         body["_links"]["status"] = {"href": f"/api/v3/statuses/{status_id}"}
+    if priority_id:
+        body["_links"]["priority"] = {"href": f"/api/v3/priorities/{priority_id}"}
     if assignee_id:
         body["_links"]["assignee"] = {"href": f"/api/v3/users/{assignee_id}"}
     if parent_id:
@@ -195,7 +238,7 @@ def update_work_package(
     if not body["_links"]:
         del body["_links"]
 
-    wp = _req("PATCH", f"/work_packages/{wp_id}", body=body)
+    wp = patch_wp_with_lock(wp_id, body, lock_version)
     return _out({"updated": _fmt_wp(wp)})
 
 
@@ -213,3 +256,17 @@ def add_comment(wp_id: int, comment: str) -> str:
         body={"comment": {"format": "markdown", "raw": comment}},
     )
     return _out({"ok": True, "wp_id": wp_id})
+
+
+@mcp.tool()
+def delete_work_package(wp_id: int) -> str:
+    """Xóa vĩnh viễn một work package (GHI/HỦY — cần xác nhận 2 lần).
+
+    KHÔNG THỂ HOÀN TÁC: xóa cả subtask con và các quan hệ liên quan trong OpenProject.
+    Để "ẩn mềm" thay vì xóa, hãy đổi trạng thái (vd Rejected/Closed) bằng update_work_package.
+
+    Args:
+        wp_id: ID của work package cần xóa.
+    """
+    _req("DELETE", f"/work_packages/{wp_id}")
+    return _out({"removed": True, "wp_id": wp_id})

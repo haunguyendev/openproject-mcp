@@ -25,7 +25,7 @@ graph LR
 import tools_admin, tools_coder, tools_news, ...
 from app import mcp
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 def main() -> None:
     log.info("openproject-mcp v%s — base_url=%s", __version__, BASE_URL)
@@ -348,16 +348,18 @@ response = _req("PATCH", "/api/v3/work_packages/123", json=payload)
 # - User A retries: fetch fresh, merge, send with new lockVersion
 ```
 
-**In our code:**
+**In our code** (`op_client.patch_wp_with_lock`): `lock_version` is optional — fetched on demand, and a 409 triggers one refetch+retry rather than bubbling up:
 ```python
-def update_work_package(work_package_id: int, lock_version: int, **changes) -> dict:
-    """Cập nhật work package với optimistic locking."""
-    payload = {**changes, "lockVersion": lock_version}
-    response = _req("PATCH", f"/api/v3/work_packages/{work_package_id}", json=payload)
-    if response.status_code == 409:
-        raise ValueError("Work package was edited concurrently. Fetch fresh and retry.")
-    return _fmt_wp(response.json())
+def patch_wp_with_lock(wp_id: int, body: dict, lock_version: int | None = None) -> dict:
+    lv = lock_version if lock_version is not None else _req("GET", f"/work_packages/{wp_id}").get("lockVersion")
+    payload = {**body, "lockVersion": lv}
+    try:
+        return _req("PATCH", f"/work_packages/{wp_id}", body=payload)
+    except ConflictError:                      # _req raises this on HTTP 409
+        payload["lockVersion"] = _req("GET", f"/work_packages/{wp_id}").get("lockVersion")
+        return _req("PATCH", f"/work_packages/{wp_id}", body=payload)  # retry once; 2nd 409 → raise
 ```
+Trade-off: the auto-retry can overwrite a concurrent edit made between the two attempts — acceptable for single-actor (AI) use. `update_work_package` and `bulk_update_work_packages` both route through this helper.
 
 ## Module Dependency Graph
 

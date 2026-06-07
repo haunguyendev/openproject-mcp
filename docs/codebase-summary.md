@@ -2,10 +2,10 @@
 
 ## Overview
 
-The openproject-mcp project is a single-file MCP server (via PEP 723) split into modular sub-files for maintainability. All Python files are under `server/` and kept under 230 LOC (target <200) for optimal context management.
+The openproject-mcp project is a single-file MCP server (via PEP 723) split into modular sub-files for maintainability. All Python files are under `server/`, target <200 LOC for optimal context management (a few tool modules exceed it: `tools_work_packages.py` 272, `tools_reports.py` 226, `tools_admin.py` 205).
 
-**Total lines of code (server/):** ~1,505 LOC across 15 files  
-**Total tools:** 41 MCP tools across 8 tool modules  
+**Total lines of code (server/):** ~1,841 LOC across 18 files  
+**Total tools:** 44 MCP tools across 9 tool modules  
 **Test coverage:** Pure helpers tested (formatters, validators)  
 **CI pipeline:** Lint, format, syntax, JSON validation, unit tests
 
@@ -16,11 +16,14 @@ The openproject-mcp project is a single-file MCP server (via PEP 723) split into
 | `server.py` | 47 | Entry point; imports tools_* for @mcp.tool() registration; logs startup info; calls `mcp.run()` |
 | `app.py` | 5 | Shared FastMCP("openproject") instance for tool registration |
 | `config.py` | 19 | Environment variables (OPENPROJECT_URL, OPENPROJECT_API_KEY, OPENPROJECT_TIMEOUT_SECONDS); stderr logging |
-| `op_client.py` | 94 | Shared httpx.Client; Basic Auth (user "apikey", pass = token); `_req` with idempotent retry; `_collection` pagination; clear error messages |
+| `op_client.py` | 131 | Shared httpx.Client; Basic Auth (user "apikey", pass = token); `_req` with idempotent retry; typed `ConflictError` (409); `patch_wp_with_lock` (auto lockVersion + 409 retry-once); `_collection` pagination; clear error messages |
 | `formatters.py` | ~90 | HAL+JSON trimming helpers: `_fmt_wp`, `_fmt_news`, `_fmt_activity`, `_fmt_notification`; `_href_id`, `_link_title`; time conversion; `_out` wrapper |
 | `validators.py` | 75 | Pure stdlib: `validate_relation()` guards (rejects self, duplicate, direct cycles); `RELATION_TYPES` canonical list |
+| `resolvers.py` | 51 | Name→ID resolution: pure `match_by_name` (case-insensitive, ambiguous/not-found guards) + `resolve_status_id` / `resolve_priority_id` / `resolve_type_id(name, project)` |
 | `custom_fields.py` | ~60 | Pure stdlib: `extract_custom_fields()` (read) + `apply_custom_fields()` (write) for work package `customFieldN` (scalar + link-type) |
-| `tools_work_packages.py` | ~215 | list_work_packages, get_work_package (incl. custom_fields), create_work_package (parent_id, custom_fields), update_work_package (parent_id, custom_fields), add_comment, list_activities |
+| `bulk_helpers.py` | 18 | Pure stdlib: `summarize_bulk()` builds the bulk result envelope (updated/created, failed, ok/fail/total counts) |
+| `tools_work_packages.py` | 272 | list_work_packages, get_work_package (incl. custom_fields), create_work_package (type/priority by name), update_work_package (optional lock_version + auto-retry, status/priority by name), add_comment, list_activities, delete_work_package |
+| `tools_bulk.py` | 153 | bulk_update_work_packages (shared fields, continue-on-error, reuses patch_wp_with_lock), bulk_create_work_packages (flat, per-item resolve) |
 | `tools_projects.py` | 118 | list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami |
 | `tools_coder.py` | 100 | list_children, get_relations, create_relation (uses validators + prefetch) |
 | `tools_time.py` | 123 | log_time, list_time_entries, my_time_summary |
@@ -38,14 +41,17 @@ The openproject-mcp project is a single-file MCP server (via PEP 723) split into
 - `list_time_entries` — view logged hours
 - `my_time_summary` — hours grouped by project/package
 
-### Project Manager (11 tools)
+### Project Manager (14 tools)
 - `list_projects`, `list_project_members`, `list_versions`, `list_types` (optional `project` → project-scoped types, avoids 422 on disabled types), `list_statuses`, `list_priorities` — metadata
-- `create_work_package`, `update_work_package` — task management
+- `create_work_package` (type/priority by name), `update_work_package` (optional lock_version + auto 409 retry; status/priority by name) — task management
+- `delete_work_package` — permanent delete (irreversible, double-confirm)
+- `bulk_update_work_packages`, `bulk_create_work_packages` — batch ops (continue-on-error)
 - `create_news`, `update_news`, `delete_news` — project news
 - `report_workload`, `report_status_board`, `report_time`, `report_portfolio` — analytics
 
-### Coder (5 tools)
-- `create_work_package` (with parent_id) — subtasks
+### Coder (6 tools)
+- `create_work_package` (with parent_id, type by name) — subtasks
+- `bulk_create_work_packages` — batch subtasks under existing parent
 - `list_children` — view task hierarchy
 - `get_relations` — dependency map
 - `create_relation` — add links (with guards)
@@ -103,7 +109,7 @@ MCP response → Claude (parsed by AI, user sees result)
 **Idempotency model:**
 - GET/PATCH/DELETE retry on transient failures
 - POST never retry (write-once semantics)
-- Optimistic locking: `update_work_package` requires current `lockVersion`
+- Optimistic locking: `update_work_package` auto-fetches `lockVersion` when omitted and retries once on 409 (`op_client.patch_wp_with_lock` + typed `ConflictError`); bulk update reuses the same path
 
 ## Tool Design Conventions
 
@@ -139,7 +145,7 @@ MCP response → Claude (parsed by AI, user sees result)
 
 **Run tests:**
 ```bash
-uv run --with pytest pytest -q tests/
+uv run --with pytest --with httpx pytest -q tests/
 ```
 
 **Coverage:** Pure helpers only; integration tests via manual API calls recommended.
@@ -156,7 +162,7 @@ uv run --with pytest pytest -q tests/
    - JSON config validation (`.mcp.json`, `.claude-plugin/*.json`)
 
 2. **Tests** (runs on push + PR)
-   - `uv run --with pytest pytest -q tests/`
+   - `uv run --with pytest --with httpx pytest -q tests/`
    - Must pass before merge
 
 **Versioning checklist** (manual, before release):
@@ -215,6 +221,8 @@ No `requirements.txt`, no virtualenv, no `pip install` — `uv` handles it.
 
 ## Recent Changes
 
+- **v0.6.0** — WP write ergonomics: `delete_work_package`; `bulk_update_work_packages` + `bulk_create_work_packages` (`tools_bulk.py`, `bulk_helpers.py`); name params for status/type/priority (`resolvers.py`); `update_work_package` optional lock_version + auto 409 retry-once (`patch_wp_with_lock`, `ConflictError`). 41 → 44 tools.
+- **v0.5.0** — Activities, custom fields, notifications (`tools_notifications.py`, `custom_fields.py`)
 - **v0.4.0** — News tools added (list, get, create, update, delete news)
 - **v0.3.1** — Relation guards, idempotent POST, re-parenting, coder skill guidance
 - **v0.3.0** — Persona routing, admin + reporting tools, test + CI

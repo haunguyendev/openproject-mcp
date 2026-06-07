@@ -6,9 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-07
+
 ### Added
-- `list_types` accepts an optional `project` argument → queries `/projects/{id}/types` (only types enabled in that project) to avoid 422 when creating a work package with a disabled type. Without it, behaviour is unchanged (global `/types`). No new tool (count stays 41).
+- `delete_work_package(wp_id)` — permanently delete a work package (API v3 `DELETE /work_packages/{id}`); irreversible, double-confirm convention in docstring (mirrors `delete_news`). Tool count 41 → 44.
+- `bulk_update_work_packages(ids, …)` and `bulk_create_work_packages(project, items)` — apply one shared field-set across many work packages, or create many in one call. Continue-on-error: a failed item never aborts the rest; result is an envelope `{updated|created, failed, ok_count, fail_count, total}` — read `failed`. New `server/tools_bulk.py` + pure `server/bulk_helpers.py` (`summarize_bulk`). `bulk_create` is flat (per-item `parent_id` may point at an existing work package; no intra-call sibling refs).
+- Name-based params (resolve name → ID at call time, alongside existing `*_id`): `create_work_package` accepts `type` (project-scoped) and `priority`; `update_work_package` accepts `status` and `priority`. Passing both a name and its `*_id` raises. New `server/resolvers.py` (`match_by_name`, `resolve_status_id`, `resolve_priority_id`, `resolve_type_id`).
+- `update_work_package` gained a `priority`/`priority_id` link (previously had neither).
+- `list_types` accepts an optional `project` argument → queries `/projects/{id}/types` (only types enabled in that project) to avoid 422 when creating a work package with a disabled type. Without it, behaviour is unchanged (global `/types`). No new tool.
 - Scrum type taxonomy skill guidance: new `skills/openproject-manager/references/work-package-hierarchy.md` teaches Epic→Story→Task hierarchy, name-based type auto-mapping (ask-once on ambiguity), guided create recipes, and advisory parent-child validation. Routed for "tạo epic/story/task", "breakdown epic", "dựng backlog" intents; cross-linked from project-manager and coder personas.
+
+### Changed
+- `update_work_package.lock_version` is now optional: when omitted the tool fetches the current `lockVersion`, and on HTTP 409 it refetches and retries the PATCH once (kills the lock-conflict storm from parent rollups). Trade-off: an auto-retry can overwrite a concurrent edit made between attempts — acceptable for single-actor use, documented in the docstring. New `op_client.patch_wp_with_lock` + typed `op_client.ConflictError`.
+- Test command now includes `httpx` (`uv run --with pytest --with httpx pytest -q tests/`) since the suite now imports `op_client` for the lock-retry unit tests.
 
 ### Fixed
 - Stale tool count in `CLAUDE.md` (38 → 41) and its verify command (added missing `tools_notifications` import).

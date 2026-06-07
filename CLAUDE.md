@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-An **MCP server + Claude Code plugin** that connects Claude to any self-hosted **OpenProject** via its REST API v3. A single, dependency-light Python server (FastMCP, PEP 723 inline deps, run by `uv run --script`) exposing **41 tools** across member / project-manager / coder / admin roles, plus a persona-routing skill.
+An **MCP server + Claude Code plugin** that connects Claude to any self-hosted **OpenProject** via its REST API v3. A single, dependency-light Python server (FastMCP, PEP 723 inline deps, run by `uv run --script`) exposing **44 tools** across member / project-manager / coder / admin roles, plus a persona-routing skill.
 
 ## Commands
 
@@ -20,12 +20,12 @@ uvx ruff format server/
 python3 -m py_compile server/*.py
 
 # Tests (pure helpers only — no network, no mcp host)
-uv run --with pytest pytest -q tests/
+uv run --with pytest --with httpx pytest -q tests/
 
-# Verify tool registration (expect 41)
+# Verify tool registration (expect 44)
 cd server && OPENPROJECT_URL="" OPENPROJECT_API_KEY="" \
   uv run --with mcp --with httpx python3 -c \
-  "import app, tools_admin, tools_coder, tools_news, tools_notifications, tools_projects, tools_reports, tools_time, tools_work_packages, asyncio; print(len(asyncio.run(app.mcp.list_tools())))"
+  "import app, tools_admin, tools_bulk, tools_coder, tools_news, tools_notifications, tools_projects, tools_reports, tools_time, tools_work_packages, asyncio; print(len(asyncio.run(app.mcp.list_tools())))"
 ```
 
 ## Architecture
@@ -37,7 +37,7 @@ cd server && OPENPROJECT_URL="" OPENPROJECT_API_KEY="" \
 - `op_client._req` retries once on `429`/`5xx` **except POST** (POST is non-idempotent — retrying risks duplicate creates).
 - Writes use optimistic locking: fetch `lockVersion` via `get_work_package` before `update_work_package`.
 
-Module map and the full 41-tool inventory live in `docs/codebase-summary.md`; request flow and auth/idempotency design in `docs/system-architecture.md`.
+Module map and the full 44-tool inventory live in `docs/codebase-summary.md`; request flow and auth/idempotency design in `docs/system-architecture.md`.
 
 ## Conventions
 

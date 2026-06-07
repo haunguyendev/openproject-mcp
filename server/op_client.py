@@ -14,6 +14,14 @@ _RETRYABLE = {429, 502, 503, 504}
 _http: httpx.Client | None = None
 
 
+class ConflictError(RuntimeError):
+    """HTTP 409 (optimistic locking) — lockVersion đã cũ vì WP bị sửa đồng thời.
+
+    Tách riêng để caller (patch_wp_with_lock) bắt chính xác và thử lại, thay vì
+    nhận RuntimeError chung chung.
+    """
+
+
 def _client() -> httpx.Client:
     """Trả về HTTP client dùng chung (tái sử dụng kết nối)."""
     global _http
@@ -71,6 +79,8 @@ def _req(method: str, path: str, *, params: dict | None = None, body: dict | Non
         )
     if r.status_code == 404:
         raise RuntimeError(f"HTTP 404: không tìm thấy {path}. {_error_message(r)}")
+    if r.status_code == 409:
+        raise ConflictError(f"HTTP 409: {_error_message(r)}")
     if r.status_code >= 400:
         raise RuntimeError(f"OpenProject trả về HTTP {r.status_code}: {_error_message(r)}")
     return r.json() if r.content else {}
@@ -92,3 +102,30 @@ def _collection(
     if extra_params:
         params.update(extra_params)
     return _req("GET", path, params=params)
+
+
+def patch_wp_with_lock(wp_id: int, body: dict, lock_version: int | None = None) -> dict:
+    """PATCH work package với optimistic locking tự động (lấy lockVersion + retry 1 lần).
+
+    lock_version=None → tự lấy lockVersion mới nhất qua GET. Gặp 409 (ai đó vừa sửa,
+    hoặc rollup từ subtask/relation bump version cha) → lấy lại lockVersion và thử lại
+    MỘT lần. Lần 409 thứ hai → ném ConflictError với hướng dẫn rõ ràng.
+
+    Cảnh báo: retry tự động sẽ ghi đè thay đổi đồng thời của người khác xảy ra giữa hai
+    lần thử — chấp nhận được khi chỉ một tác nhân (AI) đang ghi.
+    """
+    lv = lock_version
+    if lv is None:
+        lv = _req("GET", f"/work_packages/{wp_id}").get("lockVersion")
+    payload = {**body, "lockVersion": lv}
+    try:
+        return _req("PATCH", f"/work_packages/{wp_id}", body=payload)
+    except ConflictError:
+        payload["lockVersion"] = _req("GET", f"/work_packages/{wp_id}").get("lockVersion")
+        try:
+            return _req("PATCH", f"/work_packages/{wp_id}", body=payload)
+        except ConflictError as e:
+            raise ConflictError(
+                f"HTTP 409 sau khi thử lại: work package #{wp_id} bị sửa đồng thời liên tục. "
+                "Lấy lại bằng get_work_package rồi thử update lại."
+            ) from e

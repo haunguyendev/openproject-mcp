@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
-![Version](https://img.shields.io/badge/version-0.5.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.6.0-green.svg)
 
 <p align="center">
   <img src="docs/assets/openproject-mcp-claude-hero.webp" alt="OpenProject + MCP + Claude" width="100%">
@@ -50,7 +50,7 @@ The agent fetches the instructions from that link, asks you for your OpenProject
 
 ## Features
 
-- **41 tools across 4 roles** — member, project manager, coder, and admin — covering work packages (incl. activities and custom fields), projects, members, versions, relations, time tracking, news, notifications, reports, and administration.
+- **44 tools across 4 roles** — member, project manager, coder, and admin — covering work packages (incl. activities and custom fields), projects, members, versions, relations, time tracking, news, notifications, reports, and administration.
 - **Works anywhere Claude runs** — Claude Code (plugin/marketplace), Claude Desktop, and Cowork.
 - **Any OpenProject** — point it at your own instance with two environment variables.
 - **Safe writes** — the bundled skill confirms before creating/updating anything and uses optimistic locking (`lockVersion`) to avoid clobbering concurrent edits.

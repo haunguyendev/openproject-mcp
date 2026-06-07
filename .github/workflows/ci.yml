@@ -40,4 +40,4 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Run unit tests
-        run: uv run --with pytest pytest -q tests/
+        run: uv run --with pytest --with httpx pytest -q tests/
