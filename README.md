@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
-![Version](https://img.shields.io/badge/version-0.4.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.5.0-green.svg)
 
 An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude (Claude Code, Claude Desktop, Cowork) to any self-hosted OpenProject instance via its [REST API v3](https://www.openproject.org/docs/api/). Ask Claude things like *"what's overdue in project Website?"* or *"create a task and assign it to Nam, due Friday"* and it calls the right API for you.
 
@@ -18,8 +18,9 @@ An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude 
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
   - [1. Get an API token](#1-get-an-api-token)
-  - [2. Install for Claude Code](#2-install-for-claude-code)
-  - [3. Install for Claude Desktop](#3-install-for-claude-desktop)
+  - [2. Quick install with the script](#2-quick-install-with-the-script-recommended)
+  - [3. Install for Claude Code](#3-install-for-claude-code)
+  - [4. Install for Claude Desktop](#4-install-for-claude-desktop)
 - [Configuration](#configuration)
 - [Usage Examples](#usage-examples)
 - [How It Works](#how-it-works)
@@ -45,7 +46,7 @@ The agent fetches the instructions from that link, asks you for your OpenProject
 
 ## Features
 
-- **38 tools across 4 roles** — member, project manager, coder, and admin — covering work packages, projects, members, versions, relations, time tracking, news, reports, and administration.
+- **41 tools across 4 roles** — member, project manager, coder, and admin — covering work packages (incl. activities and custom fields), projects, members, versions, relations, time tracking, news, notifications, reports, and administration.
 - **Works anywhere Claude runs** — Claude Code (plugin/marketplace), Claude Desktop, and Cowork.
 - **Any OpenProject** — point it at your own instance with two environment variables.
 - **Safe writes** — the bundled skill confirms before creating/updating anything and uses optimistic locking (`lockVersion`) to avoid clobbering concurrent edits.
@@ -58,12 +59,13 @@ The bundled skill routes these by role (member / project manager / coder / admin
 
 | Area | Tools |
 |---|---|
-| Work packages | `list_work_packages` (filter by project/status/assignee/type/version/due), `get_work_package`, `create_work_package` (subtask via `parent_id`), `update_work_package`, `add_comment` |
+| Work packages | `list_work_packages` (filter by project/status/assignee/type/version/due), `get_work_package`, `create_work_package` (subtask via `parent_id`, `custom_fields`), `update_work_package` (`parent_id`, `custom_fields`), `add_comment`, `list_activities` |
 | Projects & metadata | `list_projects`, `list_project_members`, `list_versions`, `list_types`, `list_statuses`, `list_priorities`, `whoami` |
 | Coder | `list_children`, `get_relations`, `create_relation` |
 | Time tracking | `log_time`, `list_time_entries`, `my_time_summary` |
 | Reports | `report_overdue`, `report_my_tasks`, `report_project_progress`, `report_workload`, `report_status_board`, `report_time`, `report_portfolio` |
 | News | `list_news`, `get_news`, `create_news`, `update_news`, `delete_news` |
+| Notifications | `list_notifications`, `mark_notification_read` |
 | Admin | `list_users`, `get_user`, `list_roles`, `create_project`, `update_project`, `add_member`, `update_member`, `remove_member` |
 
 Write tools always require confirmation in the skill; destructive admin actions (archive project, remove member) double-confirm.
@@ -84,7 +86,26 @@ Write tools always require confirmation in the skill; destructive admin actions 
 
 In OpenProject: **avatar → My account → Access tokens → API → Generate**. Copy the token.
 
-### 2. Install for Claude Code
+### 2. Quick install with the script (recommended)
+
+The fastest path on **macOS/Linux** — one script detects Claude Code and/or Claude Desktop, asks for your OpenProject URL and API token, and writes the config for you:
+
+```sh
+git clone https://github.com/haunguyendev/openproject-mcp.git
+cd openproject-mcp
+./scripts/install.sh
+```
+
+What it does:
+
+- **Detects** which of Claude Code / Claude Desktop you have and lets you pick one or both.
+- **Installs `uv`** automatically if it's missing.
+- **Claude Code** — registers the server via `claude mcp add` (user scope).
+- **Claude Desktop** — merges into `claude_desktop_config.json` **without touching your other MCP servers**, backing the file up first.
+
+Then restart Claude (Desktop: quit with **Cmd+Q** and reopen) and ask *"Who am I on OpenProject?"*. Windows isn't covered by the script — use the manual steps below.
+
+### 3. Install for Claude Code
 
 **Try it without installing:**
 
@@ -125,7 +146,7 @@ Claude Code applies these to the session and passes them down to the MCP server.
 
 Then run `claude`. Verify with `/mcp` — the `openproject` server should show **connected** — then ask *"Who am I on OpenProject?"*. The first start is a little slow while `uv` downloads dependencies.
 
-### 3. Install for Claude Desktop
+### 4. Install for Claude Desktop
 
 Desktop apps don't inherit your shell environment, so set the values inline. Open **Settings → Developer → Edit Config** and add to `claude_desktop_config.json`:
 

@@ -56,5 +56,34 @@ def _fmt_news(n: dict) -> dict:
     }
 
 
+def _fmt_activity(a: dict) -> dict:
+    """Rút gọn một activity (comment hoặc thay đổi) của work package."""
+    comment = (a.get("comment") or {}).get("raw")
+    return {
+        "id": a.get("id"),
+        "type": "comment" if a.get("_type") == "Activity::Comment" else "change",
+        "user": _link_title(a, "user"),
+        "user_id": _href_id(a, "user"),
+        "comment": comment,
+        "created_at": a.get("createdAt"),
+        "version": a.get("version"),
+    }
+
+
+def _fmt_notification(n: dict) -> dict:
+    """Rút gọn một notification cá nhân."""
+    resource_href = (n.get("_links", {}).get("resource") or {}).get("href")
+    return {
+        "id": n.get("id"),
+        "reason": n.get("reason"),
+        "subject": n.get("subject"),
+        "read": n.get("readIAN"),
+        "project": _link_title(n, "project"),
+        "resource": _link_title(n, "resource"),
+        "resource_url": f"{BASE_URL}{resource_href}" if resource_href else None,
+        "created_at": n.get("createdAt"),
+    }
+
+
 def _out(data: Any) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False, default=str)

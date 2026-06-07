@@ -5,7 +5,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
-from formatters import _fmt_news, _fmt_wp, _href_id, _link_title, iso8601_to_hours  # noqa: E402
+from formatters import (  # noqa: E402
+    _fmt_activity,
+    _fmt_news,
+    _fmt_notification,
+    _fmt_wp,
+    _href_id,
+    _link_title,
+    iso8601_to_hours,
+)
 
 
 def test_iso8601_to_hours():
@@ -77,3 +85,44 @@ def test_fmt_news():
     assert out["author"] == "Nam"
     assert out["created_at"] == "2026-06-07T09:00:00Z"
     assert out["url"].endswith("/news/12")
+
+
+def test_fmt_activity_comment_and_change():
+    comment = {
+        "_type": "Activity::Comment",
+        "id": 99,
+        "comment": {"raw": "Đã xong phần login"},
+        "createdAt": "2026-06-07T10:00:00Z",
+        "version": 4,
+        "_links": {"user": {"title": "Nam", "href": "/api/v3/users/33"}},
+    }
+    out = _fmt_activity(comment)
+    assert out["type"] == "comment"
+    assert out["comment"] == "Đã xong phần login"
+    assert out["user"] == "Nam"
+    assert out["user_id"] == "33"
+    assert out["version"] == 4
+
+    change = {"_type": "Activity", "id": 100, "comment": {"raw": ""}}
+    assert _fmt_activity(change)["type"] == "change"
+
+
+def test_fmt_notification():
+    n = {
+        "id": 5,
+        "reason": "mentioned",
+        "subject": "Bạn được nhắc tới trong #123",
+        "readIAN": False,
+        "createdAt": "2026-06-07T11:00:00Z",
+        "_links": {
+            "project": {"title": "Website"},
+            "resource": {"title": "Fix login", "href": "/api/v3/work_packages/123"},
+        },
+    }
+    out = _fmt_notification(n)
+    assert out["id"] == 5
+    assert out["reason"] == "mentioned"
+    assert out["read"] is False
+    assert out["project"] == "Website"
+    assert out["resource"] == "Fix login"
+    assert out["resource_url"].endswith("/api/v3/work_packages/123")

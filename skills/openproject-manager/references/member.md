@@ -14,6 +14,9 @@ Mục tiêu: xem việc được giao, cập nhật tiến độ, log giờ, tra
 | "Log 2 tiếng cho #123" | `log_time(wp_id=123, hours=2)` (ngày mặc định hôm nay) |
 | "Tuần này tôi log bao nhiêu giờ?" | `my_time_summary(from_date, to_date)` |
 | "Bình luận vào #123" | `add_comment(123, "...")` |
+| "Cập nhật/thảo luận mới nhất của #123?" | `list_activities(123)` (đọc bình luận + thay đổi) |
+| "Thông báo của tôi" / "có gì mới chưa đọc?" | `list_notifications()` (chưa đọc mặc định) |
+| "Đánh dấu thông báo #5 đã đọc" | `mark_notification_read(5)` |
 
 ## Quy tắc
 

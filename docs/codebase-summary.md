@@ -4,8 +4,8 @@
 
 The openproject-mcp project is a single-file MCP server (via PEP 723) split into modular sub-files for maintainability. All Python files are under `server/` and kept under 230 LOC (target <200) for optimal context management.
 
-**Total lines of code (server/):** 1,361 LOC across 13 files  
-**Total tools:** 38 MCP tools across 7 modules  
+**Total lines of code (server/):** ~1,505 LOC across 15 files  
+**Total tools:** 41 MCP tools across 8 tool modules  
 **Test coverage:** Pure helpers tested (formatters, validators)  
 **CI pipeline:** Lint, format, syntax, JSON validation, unit tests
 
@@ -17,14 +17,16 @@ The openproject-mcp project is a single-file MCP server (via PEP 723) split into
 | `app.py` | 5 | Shared FastMCP("openproject") instance for tool registration |
 | `config.py` | 19 | Environment variables (OPENPROJECT_URL, OPENPROJECT_API_KEY, OPENPROJECT_TIMEOUT_SECONDS); stderr logging |
 | `op_client.py` | 94 | Shared httpx.Client; Basic Auth (user "apikey", pass = token); `_req` with idempotent retry; `_collection` pagination; clear error messages |
-| `formatters.py` | 60 | HAL+JSON trimming helpers: `_fmt_wp`, `_fmt_news`; `_href_id`, `_link_title`; time conversion; `_out` wrapper |
+| `formatters.py` | ~90 | HAL+JSON trimming helpers: `_fmt_wp`, `_fmt_news`, `_fmt_activity`, `_fmt_notification`; `_href_id`, `_link_title`; time conversion; `_out` wrapper |
 | `validators.py` | 75 | Pure stdlib: `validate_relation()` guards (rejects self, duplicate, direct cycles); `RELATION_TYPES` canonical list |
-| `tools_work_packages.py` | 185 | list_work_packages (filter by project, status, assignee, type, version, due), get_work_package, create_work_package, update_work_package, add_comment |
+| `custom_fields.py` | ~60 | Pure stdlib: `extract_custom_fields()` (read) + `apply_custom_fields()` (write) for work package `customFieldN` (scalar + link-type) |
+| `tools_work_packages.py` | ~215 | list_work_packages, get_work_package (incl. custom_fields), create_work_package (parent_id, custom_fields), update_work_package (parent_id, custom_fields), add_comment, list_activities |
 | `tools_projects.py` | 118 | list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami |
 | `tools_coder.py` | 100 | list_children, get_relations, create_relation (uses validators + prefetch) |
 | `tools_time.py` | 123 | log_time, list_time_entries, my_time_summary |
 | `tools_reports.py` | 226 | report_overdue, report_my_tasks, report_project_progress, report_workload, report_status_board, report_time, report_portfolio (CSV + HTML export) |
-| `tools_news.py` | 104 | list_news, get_news, create_news, update_news, delete_news (recently added v0.4.0) |
+| `tools_news.py` | 104 | list_news, get_news, create_news, update_news, delete_news (v0.4.0) |
+| `tools_notifications.py` | ~40 | list_notifications (unread default), mark_notification_read (v0.5.0; needs OpenProject ~12.1+) |
 | `tools_admin.py` | 205 | list_users, get_user, list_roles, create_project, update_project, add_member, update_member, remove_member; confirm-first, double-confirm destructive |
 
 ## Tool Inventory by Role

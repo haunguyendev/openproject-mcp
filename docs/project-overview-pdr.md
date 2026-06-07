@@ -4,7 +4,7 @@
 
 **openproject-mcp** is an MCP (Model Context Protocol) server and Claude plugin that bridges Claude AI with self-hosted OpenProject instances. It enables natural-language project management through a comprehensive set of tools for work packages, projects, members, time tracking, and reporting.
 
-**Version:** 0.4.0  
+**Version:** 0.5.0  
 **Status:** Stable, active development  
 **License:** MIT
 
