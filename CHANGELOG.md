@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-06-07
+
+### Fixed
+- `POST` writes are no longer retried on `429`/`5xx`, preventing duplicate creates (relations, work packages, time entries, comments, members) when a response is lost after a successful write. Idempotent `GET`/`PATCH`/`DELETE` still retry.
+
+### Added
+- Relation guards in `create_relation`: rejects self-relation, duplicate (either direction), and direct 2-node cycles (`blocks`/`precedes` reverse) before hitting the API, via a new pure `server/validators.py` (`validate_relation`).
+- Re-parenting: `update_work_package(parent_id=...)` moves an existing work package under a new parent.
+- Clearer `404` errors that name the request path.
+- Coder skill guidance: relation direction, single-direction rule, scheduling side-effects, same-project parent, dedupe-before-create, bulk-confirm, and truncation notes.
+- Unit tests for `validate_relation`.
+
 ## [0.3.0] - 2026-06-07
 
 ### Added

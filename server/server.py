@@ -29,7 +29,7 @@ import tools_work_packages  # noqa: F401
 from app import mcp
 from config import API_KEY, BASE_URL, log
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 
 def main() -> None:
