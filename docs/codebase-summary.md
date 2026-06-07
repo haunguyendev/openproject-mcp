@@ -17,15 +17,16 @@ The openproject-mcp project is a single-file MCP server (via PEP 723) split into
 | `app.py` | 5 | Shared FastMCP("openproject") instance for tool registration |
 | `config.py` | 19 | Environment variables (OPENPROJECT_URL, OPENPROJECT_API_KEY, OPENPROJECT_TIMEOUT_SECONDS); stderr logging |
 | `op_client.py` | 131 | Shared httpx.Client; Basic Auth (user "apikey", pass = token); `_req` with idempotent retry; typed `ConflictError` (409); `patch_wp_with_lock` (auto lockVersion + 409 retry-once); `_collection` pagination; clear error messages |
-| `formatters.py` | ~90 | HAL+JSON trimming helpers: `_fmt_wp`, `_fmt_news`, `_fmt_activity`, `_fmt_notification`; `_href_id`, `_link_title`; time conversion; `_out` wrapper |
-| `validators.py` | 75 | Pure stdlib: `validate_relation()` guards (rejects self, duplicate, direct cycles); `RELATION_TYPES` canonical list |
+| `formatters.py` | ~100 | HAL+JSON trimming helpers: `_fmt_wp`, `_parent_fields` (parent from `_links`), `_fmt_news`, `_fmt_activity`, `_fmt_notification`; `_href_id`, `_link_title`; time conversion; `_out` wrapper |
+| `validators.py` | ~95 | Pure stdlib: `validate_relation()` guards (rejects self, duplicate, direct cycles); `RELATION_TYPES` canonical list; `validate_include()` + `ALLOWED_INCLUDES` for `get_work_package` |
+| `wp_helpers.py` | ~45 | Shared work package fetchers (no `@mcp.tool`): `_fetch_children` (full subtask details), `_fetch_relations` (normalized relations); reused by `get_work_package`, `list_children`, `get_relations` |
 | `resolvers.py` | 51 | Name→ID resolution: pure `match_by_name` (case-insensitive, ambiguous/not-found guards) + `resolve_status_id` / `resolve_priority_id` / `resolve_type_id(name, project)` |
 | `custom_fields.py` | ~60 | Pure stdlib: `extract_custom_fields()` (read) + `apply_custom_fields()` (write) for work package `customFieldN` (scalar + link-type) |
 | `bulk_helpers.py` | 18 | Pure stdlib: `summarize_bulk()` builds the bulk result envelope (updated/created, failed, ok/fail/total counts) |
-| `tools_work_packages.py` | 272 | list_work_packages, get_work_package (incl. custom_fields), create_work_package (type/priority by name), update_work_package (optional lock_version + auto-retry, status/priority by name), add_comment, list_activities, delete_work_package |
+| `tools_work_packages.py` | ~285 | list_work_packages, get_work_package (parent fields always; `include=["children","relations"]` for one-call context; incl. custom_fields), create_work_package (type/priority by name), update_work_package (optional lock_version + auto-retry, status/priority by name), add_comment, list_activities, delete_work_package |
 | `tools_bulk.py` | 153 | bulk_update_work_packages (shared fields, continue-on-error, reuses patch_wp_with_lock), bulk_create_work_packages (flat, per-item resolve) |
 | `tools_projects.py` | 118 | list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami |
-| `tools_coder.py` | 100 | list_children, get_relations, create_relation (uses validators + prefetch) |
+| `tools_coder.py` | ~50 | list_children, get_relations (thin wrappers over `wp_helpers`), create_relation (uses validators + prefetch) |
 | `tools_time.py` | 123 | log_time, list_time_entries, my_time_summary |
 | `tools_reports.py` | 226 | report_overdue, report_my_tasks, report_project_progress, report_workload, report_status_board, report_time, report_portfolio (CSV + HTML export) |
 | `tools_news.py` | 104 | list_news, get_news, create_news, update_news, delete_news (v0.4.0) |
@@ -36,7 +37,7 @@ The openproject-mcp project is a single-file MCP server (via PEP 723) split into
 
 ### Member (5 tools)
 - `list_work_packages` — filter by status, assignee, due
-- `get_work_package` — fetch single item
+- `get_work_package` — fetch single item (always returns parent_id/parent_subject; `include=["children","relations"]` to gather subtasks + dependencies in one call)
 - `add_comment` — add note to work package
 - `list_time_entries` — view logged hours
 - `my_time_summary` — hours grouped by project/package
@@ -221,6 +222,7 @@ No `requirements.txt`, no virtualenv, no `pip install` — `uv` handles it.
 
 ## Recent Changes
 
+- **v0.7.0** — `get_work_package` read ergonomics: `include=["children","relations"]` (one-call context) + always-on `parent_id`/`parent_subject`; shared fetchers extracted to `wp_helpers.py` (`_fetch_children`, `_fetch_relations`); `validate_include` + `_parent_fields`. Tool count unchanged (44).
 - **v0.6.0** — WP write ergonomics: `delete_work_package`; `bulk_update_work_packages` + `bulk_create_work_packages` (`tools_bulk.py`, `bulk_helpers.py`); name params for status/type/priority (`resolvers.py`); `update_work_package` optional lock_version + auto 409 retry-once (`patch_wp_with_lock`, `ConflictError`). 41 → 44 tools.
 - **v0.5.0** — Activities, custom fields, notifications (`tools_notifications.py`, `custom_fields.py`)
 - **v0.4.0** — News tools added (list, get, create, update, delete news)

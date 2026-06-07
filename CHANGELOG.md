@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-07
+
+### Added
+- `get_work_package` gained an `include` param: `include=["children","relations"]` embeds full subtask details and the relation list in the same response, collapsing the old three-call pattern (`get_work_package` + `list_children` + `get_relations`) into one. Values are validated (`validators.validate_include` + `ALLOWED_INCLUDES`); unknown values raise. Tool count unchanged (44).
+- `get_work_package` now always returns `parent_id` + `parent_subject` (extracted from HAL `_links.parent`, no extra API call; both `null` for a root work package) via new pure `formatters._parent_fields`.
+
+### Changed
+- Extracted shared work package fetchers into new `server/wp_helpers.py` (`_fetch_children`, `_fetch_relations`); `list_children` and `get_relations` are now thin wrappers over them (DRY), and `get_work_package` reuses them for its `include` expansions. `list_children.total` now reflects the count returned (≤100) rather than the API's full count — the returned items are identical.
+
 ## [0.6.0] - 2026-06-07
 
 ### Added

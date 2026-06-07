@@ -4,7 +4,7 @@
 
 **openproject-mcp** is an MCP (Model Context Protocol) server and Claude plugin that bridges Claude AI with self-hosted OpenProject instances. It enables natural-language project management through a comprehensive set of tools for work packages, projects, members, time tracking, and reporting.
 
-**Version:** 0.6.0  
+**Version:** 0.7.0  
 **Status:** Stable, active development  
 **License:** MIT
 
@@ -117,6 +117,9 @@ OpenProject REST API v3
 
 ## Version History
 
+- **v0.7.0** (2026-06-07): `get_work_package` include param embeds children/relations; always returns parent_id/parent_subject
+- **v0.6.0** (2026-06-07): WP write ergonomics (delete, auto-lock, bulk, name params)
+- **v0.5.0** (2026-06-07): Activities, custom fields, notifications
 - **v0.4.0** (2026-06-07): Added news CRUD tools (list, get, create, update, delete)
 - **v0.3.1** (2026-06-07): Relation/hierarchy hardening (idempotent POST, validation guards, re-parenting)
 - **v0.3.0** (2026-06-07): Persona-aware skill + coder/manager/reporting tools + admin panel

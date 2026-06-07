@@ -12,6 +12,7 @@ from formatters import (  # noqa: E402
     _fmt_wp,
     _href_id,
     _link_title,
+    _parent_fields,
     iso8601_to_hours,
 )
 
@@ -64,6 +65,23 @@ def test_fmt_wp():
     assert out["done_ratio"] == 50
     assert out["lock_version"] == 3
     assert out["url"].endswith("/work_packages/7")
+
+
+def test_parent_fields_present():
+    wp = {"_links": {"parent": {"href": "/api/v3/work_packages/1204", "title": "Epic X"}}}
+    out = _parent_fields(wp)
+    assert out["parent_id"] == 1204
+    assert isinstance(out["parent_id"], int)
+    assert out["parent_subject"] == "Epic X"
+
+
+def test_parent_fields_root():
+    # WP gốc: không có link parent (hoặc parent=None) → cả hai trường None.
+    assert _parent_fields({}) == {"parent_id": None, "parent_subject": None}
+    assert _parent_fields({"_links": {"parent": None}}) == {
+        "parent_id": None,
+        "parent_subject": None,
+    }
 
 
 def test_fmt_news():

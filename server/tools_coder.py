@@ -3,31 +3,10 @@
 from typing import Any
 
 from app import mcp
-from formatters import _fmt_wp, _href_id, _link_title, _out
-from op_client import _collection, _req
+from formatters import _out
+from op_client import _req
 from validators import RELATION_TYPES, validate_relation
-
-
-def _fetch_relations(wp_id: int) -> list[dict]:
-    """Lấy quan hệ của một WP, chuẩn hóa thành list dict (dùng chung tool + validator).
-
-    Xin pageSize lớn để chắc chắn lấy hết: validator dựa trên danh sách này để chặn
-    trùng/vòng lặp, nên danh sách bị cắt sẽ làm lọt kiểm tra.
-    """
-    data = _req("GET", f"/work_packages/{wp_id}/relations", params={"pageSize": 1000})
-    items = []
-    for r in data.get("_embedded", {}).get("elements", []):
-        items.append(
-            {
-                "relation_id": r.get("id"),
-                "type": r.get("type"),
-                "to_id": _href_id(r, "to"),
-                "to": _link_title(r, "to"),
-                "from_id": _href_id(r, "from"),
-                "description": r.get("description"),
-            }
-        )
-    return items
+from wp_helpers import _fetch_children, _fetch_relations
 
 
 @mcp.tool()
@@ -37,13 +16,8 @@ def list_children(wp_id: int) -> str:
     Args:
         wp_id: ID work package cha.
     """
-    data = _collection(
-        "/work_packages",
-        [{"parent": {"operator": "=", "values": [str(wp_id)]}}],
-        page_size=100,
-    )
-    items = [_fmt_wp(w) for w in data.get("_embedded", {}).get("elements", [])]
-    return _out({"parent_id": wp_id, "total": data.get("total"), "children": items})
+    children = _fetch_children(wp_id)
+    return _out({"parent_id": wp_id, "total": len(children), "children": children})
 
 
 @mcp.tool()

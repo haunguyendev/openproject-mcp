@@ -1,9 +1,9 @@
 # Project Roadmap — openproject-mcp
 
-## Current Version: 0.6.0 (2026-06-07)
+## Current Version: 0.7.0 (2026-06-07)
 
 **Status:** Stable, production-ready  
-**Shipped:** All core features; news tools recently added
+**Shipped:** get_work_package include children/relations + parent fields
 
 ## Completed Phases
 
@@ -137,8 +137,9 @@
 | 0.3.1 | 2026-06-07 | Hierarchy hardening | 33 |
 | 0.4.0 | 2026-06-07 | News CRUD | 38 |
 | 0.5.0 | 2026-06-07 | Activities, custom fields, notifications | 41 |
-| **0.6.0** | **2026-06-07** | **WP write ergonomics: delete, auto-lock, bulk, name params** | **44** |
-| 0.7.0+ | Exploration | enable_project_types, cycle detection, cross-project, integrations | TBD |
+| 0.6.0 | 2026-06-07 | WP write ergonomics: delete, auto-lock, bulk, name params | 44 |
+| **0.7.0** | **2026-06-07** | **get_work_package include children/relations + parent fields** | **44** |
+| 0.8.0+ | Exploration | enable_project_types, cycle detection, cross-project, integrations | TBD |
 
 ## Success Metrics
 

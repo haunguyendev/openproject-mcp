@@ -4,9 +4,11 @@ from typing import Any
 
 from app import mcp
 from custom_fields import apply_custom_fields, extract_custom_fields
-from formatters import _fmt_activity, _fmt_wp, _out
+from formatters import _fmt_activity, _fmt_wp, _out, _parent_fields
 from op_client import _collection, _req, patch_wp_with_lock
 from resolvers import resolve_priority_id, resolve_status_id, resolve_type_id
+from validators import validate_include
+from wp_helpers import _fetch_children, _fetch_relations
 
 
 @mcp.tool()
@@ -59,12 +61,21 @@ def list_work_packages(
 
 
 @mcp.tool()
-def get_work_package(wp_id: int) -> str:
-    """Xem chi tiết một work package, gồm mô tả và lockVersion (cần cho update).
+def get_work_package(wp_id: int, include: list[str] | None = None) -> str:
+    """Xem chi tiết một work package: mô tả, cha (parent), lockVersion (cần cho update).
+
+    Mặc định trả thông tin cơ bản + parent_id/parent_subject (None nếu là WP gốc). Dùng
+    `include` để gộp thêm con và quan hệ trong MỘT lần gọi — khỏi phải gọi riêng
+    list_children và get_relations.
 
     Args:
         wp_id: ID của work package.
+        include: Phần mở rộng lấy kèm (để trống = chỉ cơ bản + parent). Hợp lệ:
+            - "children": danh sách work package con (subtask), đầy đủ trường.
+            - "relations": quan hệ (blocks/precedes/relates...) của work package.
+            Truyền cả hai để lấy gộp. Giá trị lạ → lỗi liệt kê giá trị hợp lệ.
     """
+    includes = validate_include(include)
     wp = _req("GET", f"/work_packages/{wp_id}")
     detail = _fmt_wp(wp)
     detail["description"] = (wp.get("description") or {}).get("raw")
@@ -72,9 +83,14 @@ def get_work_package(wp_id: int) -> str:
     detail["spent_time"] = wp.get("spentTime")
     detail["created_at"] = wp.get("createdAt")
     detail["updated_at"] = wp.get("updatedAt")
+    detail.update(_parent_fields(wp))
     custom = extract_custom_fields(wp)
     if custom:
         detail["custom_fields"] = custom
+    if "children" in includes:
+        detail["children"] = _fetch_children(wp_id)
+    if "relations" in includes:
+        detail["relations"] = _fetch_relations(wp_id)
     return _out(detail)
 
 

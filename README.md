@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
-![Version](https://img.shields.io/badge/version-0.6.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.7.0-green.svg)
 
 <p align="center">
   <img src="docs/assets/openproject-mcp-claude-hero.webp" alt="OpenProject + MCP + Claude" width="100%">
@@ -63,7 +63,7 @@ The bundled skill routes these by role (member / project manager / coder / admin
 
 | Area | Tools |
 |---|---|
-| Work packages | `list_work_packages` (filter by project/status/assignee/type/version/due), `get_work_package`, `create_work_package` (subtask via `parent_id`, `custom_fields`), `update_work_package` (`parent_id`, `custom_fields`), `add_comment`, `list_activities` |
+| Work packages | `list_work_packages` (filter by project/status/assignee/type/version/due), `get_work_package` (parent fields always; `include=["children","relations"]` for one-call context), `create_work_package` (subtask via `parent_id`, `custom_fields`), `update_work_package` (`parent_id`, `custom_fields`), `add_comment`, `list_activities` |
 | Projects & metadata | `list_projects`, `list_project_members`, `list_versions`, `list_types`, `list_statuses`, `list_priorities`, `whoami` |
 | Coder | `list_children`, `get_relations`, `create_relation` |
 | Time tracking | `log_time`, `list_time_entries`, `my_time_summary` |

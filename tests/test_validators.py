@@ -5,7 +5,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
-from validators import RELATION_TYPES, validate_relation  # noqa: E402
+from validators import (  # noqa: E402
+    ALLOWED_INCLUDES,
+    RELATION_TYPES,
+    validate_include,
+    validate_relation,
+)
 
 
 def test_valid_relation_returns_none():
@@ -83,3 +88,31 @@ def test_ids_compared_across_int_and_str():
 
 def test_relation_types_count():
     assert len(RELATION_TYPES) == 11
+
+
+def test_validate_include_empty():
+    assert validate_include(None) == []
+    assert validate_include([]) == []
+
+
+def test_validate_include_valid_and_order_preserved():
+    assert validate_include(["children", "relations"]) == ["children", "relations"]
+    assert validate_include(["relations", "children"]) == ["relations", "children"]
+
+
+def test_validate_include_dedupes():
+    assert validate_include(["children", "children"]) == ["children"]
+
+
+def test_validate_include_rejects_unknown():
+    try:
+        validate_include(["bogus"])
+    except ValueError as e:
+        assert "bogus" in str(e)
+        assert "children" in str(e) and "relations" in str(e)
+    else:
+        raise AssertionError("expected ValueError for unknown include value")
+
+
+def test_allowed_includes_content():
+    assert set(ALLOWED_INCLUDES) == {"children", "relations"}

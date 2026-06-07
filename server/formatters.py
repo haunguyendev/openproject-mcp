@@ -43,6 +43,18 @@ def _fmt_wp(wp: dict) -> dict:
     }
 
 
+def _parent_fields(wp: dict) -> dict:
+    """Trích cha từ _links.parent (có sẵn trong WP GET — không tốn call thêm).
+
+    Root WP (không có cha) → cả hai trường None.
+    """
+    pid = _href_id(wp, "parent")
+    return {
+        "parent_id": int(pid) if pid else None,
+        "parent_subject": _link_title(wp, "parent"),
+    }
+
+
 def _fmt_news(n: dict) -> dict:
     """Rút gọn news (thông báo) thành các trường hữu ích."""
     return {

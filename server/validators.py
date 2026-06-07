@@ -22,6 +22,30 @@ RELATION_TYPES = (
 # Loại quan hệ có hướng phụ thuộc/lịch trình; chiều ngược giữa cùng cặp = vòng lặp trực tiếp.
 _DIRECTIONAL = {"blocks", "blocked", "precedes", "follows"}
 
+# Giá trị hợp lệ cho param include của get_work_package.
+ALLOWED_INCLUDES = ("children", "relations")
+
+
+def validate_include(include: list[str] | None) -> list[str]:
+    """Chuẩn hóa + kiểm tra param include. None/[] → []; loại trùng; giữ thứ tự.
+
+    Raise ValueError nếu có giá trị không hợp lệ (liệt kê giá trị sai + tập hợp lệ).
+    """
+    if not include:
+        return []
+    seen: list[str] = []
+    bad: list[str] = []
+    for v in include:
+        if v not in ALLOWED_INCLUDES:
+            bad.append(str(v))
+        elif v not in seen:
+            seen.append(v)
+    if bad:
+        raise ValueError(
+            f"include không hợp lệ: {', '.join(bad)}. Chọn trong: {', '.join(ALLOWED_INCLUDES)}."
+        )
+    return seen
+
 
 def _pair(a: object, b: object) -> frozenset[str]:
     """Cặp không thứ tự (so khớp quan hệ bất kể chiều)."""
