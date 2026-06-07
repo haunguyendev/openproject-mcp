@@ -4,7 +4,7 @@
   "license": "MIT",
   "description": "Manage OpenProject with AI — work packages, projects, members, time tracking and progress reports via the REST API v3.",
   "author": {
-    "name": "Promete AI"
+    "name": "haunguyendev"
   },
   "keywords": ["mcp", "openproject", "project-management", "work-packages", "time-tracking"]
 }

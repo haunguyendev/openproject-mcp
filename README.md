@@ -11,6 +11,7 @@ An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude 
 
 ## Table of Contents
 
+- [Quick Setup with an AI Agent](#quick-setup-with-an-ai-agent)
 - [Features](#features)
 - [Tools](#tools)
 - [Requirements](#requirements)
@@ -26,6 +27,20 @@ An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude 
 - [Development](#development)
 - [Contributing](#contributing)
 - [License](#license)
+
+## Quick Setup with an AI Agent
+
+Already in Claude Code (or any MCP-capable agent)? Skip the manual steps — **copy the prompt below**, paste it to your agent, and it will install and configure everything for you:
+
+```text
+Install the OpenProject MCP plugin for me. Read the setup guide at
+https://raw.githubusercontent.com/haunguyendev/openproject-mcp/master/README.md
+then ask me for my OpenProject URL and API token, set the OPENPROJECT_URL and
+OPENPROJECT_API_KEY environment variables, install the plugin, and verify the
+connection by calling the whoami tool.
+```
+
+The agent fetches the instructions from that link, asks you for your OpenProject URL and API token (the only things it needs from you), runs the install commands, and confirms the connection works. Prefer to do it by hand? Follow the [Quick Start](#quick-start) below.
 
 ## Features
 
@@ -170,4 +185,4 @@ Issues and pull requests are welcome. Please:
 
 ## License
 
-[MIT](LICENSE) © 2026 Promete AI
+[MIT](LICENSE) © 2026 haunguyendev

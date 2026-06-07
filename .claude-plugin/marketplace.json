@@ -1,10 +1,10 @@
 {
   "name": "promete-plugins",
   "owner": {
-    "name": "Promete AI"
+    "name": "haunguyendev"
   },
   "metadata": {
-    "description": "Plugins by Promete AI for Claude Code",
+    "description": "Plugins by haunguyendev for Claude Code",
     "version": "1.0.0"
   },
   "plugins": [
@@ -13,7 +13,7 @@
       "source": "./",
       "description": "Manage OpenProject with AI — work packages, time tracking, reports",
       "version": "0.2.0",
-      "author": { "name": "Promete AI" }
+      "author": { "name": "haunguyendev" }
     }
   ]
 }
