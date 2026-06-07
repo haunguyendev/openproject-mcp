@@ -2,7 +2,7 @@
   "name": "openproject-mcp",
   "version": "0.2.0",
   "license": "MIT",
-  "description": "Quản lý công việc OpenProject (manage.promete.ai) bằng AI — work packages, dự án, time tracking và báo cáo tổng hợp.",
+  "description": "Manage OpenProject with AI — work packages, projects, members, time tracking and progress reports via the REST API v3.",
   "author": {
     "name": "Promete AI"
   },

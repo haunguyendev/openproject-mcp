@@ -8,7 +8,6 @@
         "${CLAUDE_PLUGIN_ROOT}/server/server.py"
       ],
       "env": {
-        "OPENPROJECT_URL": "https://manage.promete.ai",
         "OPENPROJECT_TIMEOUT_SECONDS": "30"
       }
     }

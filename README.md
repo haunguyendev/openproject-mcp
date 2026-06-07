@@ -1,99 +1,104 @@
-# openproject-mcp
+# OpenProject MCP
 
-MCP server + plugin Claude (Cowork / Claude Code / Claude Desktop) cho **OpenProject tự host** — quản lý công việc bằng AI: xem/tạo/cập nhật task, gán người, log giờ, báo cáo tiến độ.
+> Manage your self-hosted **OpenProject** with AI — view, create and update work packages, assign people, log time, and get progress reports, all from natural language.
 
-> 🔑 **Bảo mật:** repo này **không chứa API key**. File `.mcp.json` chỉ khai báo cách chạy server; key được đọc từ **biến môi trường shell** (`OPENPROJECT_API_KEY`) — mỗi người dùng key riêng, không secret nào lên git.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
+![Version](https://img.shields.io/badge/version-0.2.0-green.svg)
 
-## Cấu trúc
+An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude (Claude Code, Claude Desktop, Cowork) to any self-hosted OpenProject instance via its [REST API v3](https://www.openproject.org/docs/api/). Ask Claude things like *"what's overdue in project Website?"* or *"create a task and assign it to Nam, due Friday"* and it calls the right API for you.
 
-```
-openproject-mcp/
-├── .claude-plugin/
-│   ├── plugin.json                  # Manifest plugin
-│   └── marketplace.json             # Cho phép cài qua /plugin marketplace
-├── .mcp.json                        # Khai báo MCP server (không chứa secret)
-├── server/server.py                 # MCP server Python (FastMCP, PEP 723)
-├── skills/openproject-manager/      # Skill hướng dẫn workflow cho Claude
-├── pyproject.toml                   # Cấu hình ruff (dev)
-├── CHANGELOG.md
-└── LICENSE                          # MIT
-```
+## Table of Contents
 
-## Các tool (16)
+- [Features](#features)
+- [Tools](#tools)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+  - [1. Get an API token](#1-get-an-api-token)
+  - [2. Install for Claude Code](#2-install-for-claude-code)
+  - [3. Install for Claude Desktop](#3-install-for-claude-desktop)
+- [Configuration](#configuration)
+- [Usage Examples](#usage-examples)
+- [How It Works](#how-it-works)
+- [Troubleshooting](#troubleshooting)
+- [Security](#security)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
-| Nhóm | Tool |
+## Features
+
+- **16 focused tools** covering the daily project-management loop — work packages, projects, members, time tracking, and reports.
+- **Works anywhere Claude runs** — Claude Code (plugin/marketplace), Claude Desktop, and Cowork.
+- **Any OpenProject** — point it at your own instance with two environment variables.
+- **Safe writes** — the bundled skill confirms before creating/updating anything and uses optimistic locking (`lockVersion`) to avoid clobbering concurrent edits.
+- **Resilient** — shared HTTP connection, one automatic retry on `429`/`5xx` (honoring `Retry-After`), and clear messages on auth failure.
+- **No secrets in the repo** — credentials are read from your environment, never committed.
+
+## Tools
+
+| Group | Tools |
 |---|---|
 | Work packages | `list_work_packages`, `get_work_package`, `create_work_package`, `update_work_package`, `add_comment` |
-| Dự án & thành viên | `list_projects`, `list_project_members`, `whoami` |
+| Projects & members | `list_projects`, `list_project_members`, `whoami` |
 | Metadata | `list_types`, `list_statuses`, `list_priorities` |
 | Time tracking | `log_time`, `list_time_entries` |
-| Báo cáo | `report_overdue`, `report_my_tasks`, `report_project_progress` |
+| Reports | `report_overdue`, `report_my_tasks`, `report_project_progress` |
 
-## Cài đặt
+## Requirements
 
-### 1. Yêu cầu
-
-- [`uv`](https://docs.astral.sh/uv/) — tự cài dependency (`mcp`, `httpx`) từ metadata PEP 723:
+- **[`uv`](https://docs.astral.sh/uv/)** — runs the server and auto-installs its dependencies (`mcp`, `httpx`) from the inline [PEP 723](https://peps.python.org/pep-0723/) metadata. No manual `pip install` needed.
 
   ```sh
   curl -LsSf https://astral.sh/uv/install.sh | sh
   ```
 
-- API key OpenProject: đăng nhập → avatar → **My account → Access tokens → API**.
+- An **OpenProject instance** (self-hosted or cloud) and a personal **API token**.
 
-### 2. Cấu hình API key
+## Quick Start
 
-Thêm vào `~/.zshrc` (hoặc `~/.bashrc`):
+### 1. Get an API token
 
-```sh
-export OPENPROJECT_API_KEY="<api-key-của-bạn>"
-```
+In OpenProject: **avatar → My account → Access tokens → API → Generate**. Copy the token.
 
-Mở Terminal mới (hoặc `source ~/.zshrc`) để biến có hiệu lực. Server đọc key từ môi trường — không cần sửa file nào trong repo.
+### 2. Install for Claude Code
 
-| Biến | Ý nghĩa | Nguồn | Mặc định |
-|---|---|---|---|
-| `OPENPROJECT_API_KEY` | API key cá nhân (**bắt buộc**) | Shell env (`~/.zshrc`) | — |
-| `OPENPROJECT_URL` | URL OpenProject | `.mcp.json` | `https://manage.promete.ai` |
-| `OPENPROJECT_TIMEOUT_SECONDS` | Timeout request | `.mcp.json` | `30` |
-
-> Muốn trỏ sang OpenProject khác? Sửa `OPENPROJECT_URL` trong `.mcp.json` hoặc export biến cùng tên trong shell.
-
-> API v3 của OpenProject dùng Basic Auth với username `apikey`, password = API key — server xử lý sẵn.
-
-### 3a. Dùng với Claude Code
-
-**Thử nhanh (không cài):**
+**Try it without installing:**
 
 ```sh
-cd /thư/mục/chứa/plugin
-claude --plugin-dir ./openproject-mcp
+claude --plugin-dir /path/to/openproject-mcp
 ```
 
-**Cài cố định từ repo (khuyến nghị cho team):** repo này đồng thời là marketplace (có sẵn `.claude-plugin/marketplace.json`). Trong Claude Code:
+**Install from the marketplace (recommended for teams)** — this repo is also a plugin marketplace:
 
 ```
 /plugin marketplace add haunguyendev/openproject-mcp
 /plugin install openproject-mcp@promete-plugins
 ```
 
-Plugin lấy API key từ biến môi trường (xem mục **2. Cấu hình API key**) — chỉ cần đã `export OPENPROJECT_API_KEY` trong shell là chạy được ngay, không phải sửa file nào sau khi cài.
+The plugin reads your credentials from the environment, so export them once (e.g. in `~/.zshrc` or `~/.bashrc`):
 
-Kiểm tra: gõ `/mcp` → server `openproject` hiện **connected** → hỏi "Tôi là ai trên OpenProject?". Lần khởi động đầu hơi chậm do `uv` tải thư viện.
+```sh
+export OPENPROJECT_URL="https://your-openproject.example.com"
+export OPENPROJECT_API_KEY="your-api-token"
+```
 
-### 3b. Dùng với Claude Desktop
+Open a new terminal (or `source ~/.zshrc`) and run `claude`. Verify with `/mcp` — the `openproject` server should show **connected** — then ask *"Who am I on OpenProject?"*. The first start is a little slow while `uv` downloads dependencies.
 
-Settings → Developer → Edit Config, thêm vào `claude_desktop_config.json` (thay đường dẫn tuyệt đối và key của bạn):
+### 3. Install for Claude Desktop
+
+Desktop apps don't inherit your shell environment, so set the values inline. Open **Settings → Developer → Edit Config** and add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "openproject": {
-      "command": "/đường/dẫn/tới/uv",
-      "args": ["run", "--script", "/đường/dẫn/tới/openproject-mcp/server/server.py"],
+      "command": "uv",
+      "args": ["run", "--script", "/absolute/path/to/openproject-mcp/server/server.py"],
       "env": {
         "OPENPROJECT_URL": "https://your-openproject.example.com",
-        "OPENPROJECT_API_KEY": "<api-key>",
+        "OPENPROJECT_API_KEY": "your-api-token",
         "OPENPROJECT_TIMEOUT_SECONDS": "30"
       }
     }
@@ -101,31 +106,68 @@ Settings → Developer → Edit Config, thêm vào `claude_desktop_config.json` 
 }
 ```
 
-Khởi động lại app, hỏi thử: **"Tôi là ai trên OpenProject?"** → Claude gọi `whoami`.
+> If `uv` isn't on the app's `PATH`, replace `"command": "uv"` with its absolute path (find it with `which uv`).
 
-## Ví dụ câu lệnh
+Restart the app and ask *"Who am I on OpenProject?"* → Claude calls `whoami`.
 
-- "Hôm nay tôi cần làm gì?" / "Việc nào của tôi sắp đến hạn?"
-- "Có task nào quá hạn trong dự án Website không?"
-- "Tạo task 'Fix lỗi login' trong dự án ABC, gán cho Nam, hạn thứ Sáu"
-- "Chuyển task #123 sang In progress và log 2 tiếng"
-- "Báo cáo tiến độ dự án XYZ" / "Tuần này tôi đã log bao nhiêu giờ?"
+## Configuration
 
-## Phát triển
+| Variable | Description | Required | Default |
+|---|---|:---:|---|
+| `OPENPROJECT_URL` | Base URL of your OpenProject instance | ✅ | — |
+| `OPENPROJECT_API_KEY` | Personal API token | ✅ | — |
+| `OPENPROJECT_TIMEOUT_SECONDS` | Per-request timeout | | `30` |
+
+> OpenProject API v3 authenticates with HTTP Basic Auth using username `apikey` and the token as the password — the server handles this for you.
+
+## Usage Examples
+
+- *"What do I need to do today?"* / *"Which of my tasks are due soon?"*
+- *"Is anything overdue in the Website project?"*
+- *"Create a task 'Fix login bug' in project ABC, assign it to Nam, due Friday."*
+- *"Move task #123 to In progress and log 2 hours."*
+- *"Give me a progress report for project XYZ."* / *"How many hours did I log this week?"*
+
+## How It Works
+
+- A single Python file (`server/server.py`) built on **FastMCP**, with dependencies declared inline via **PEP 723** and run by `uv run --script` — no virtualenv to manage.
+- Communicates over **stdio**; logs go to `stderr` so they never corrupt the MCP protocol stream on `stdout`.
+- Each tool maps to OpenProject **API v3** endpoints and returns trimmed JSON with only the useful fields plus a `url` to open the item directly.
+- Write tools require the current `lockVersion` (fetched via `get_work_package`) to prevent lost updates.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `401 Unauthorized` | Token is wrong or expired — generate a new one (My account → Access tokens → API). |
+| `openproject` not in `/mcp` | Ensure `uv` is installed and on `PATH`; for the plugin, confirm `OPENPROJECT_URL`/`OPENPROJECT_API_KEY` are exported in the shell that launched Claude. |
+| Server won't start | Check the `uv` path with `which uv` and update `"command"` accordingly. |
+| Slow first run | Normal — `uv` is downloading `mcp` and `httpx`; later runs are fast. |
+
+## Security
+
+- The repo contains **no API keys** — `.mcp.json` only declares how to run the server; credentials come from the environment.
+- Keys are never printed to logs or tool output.
+- If a key is ever exposed (pasted into a chat, committed by mistake), revoke it immediately at **My account → Access tokens** and generate a new one.
+- Verify no secret leaked before pushing: `git grep -iE "api[_-]?key.*[a-f0-9]{40}" $(git rev-list --all)` should return nothing.
+
+## Development
 
 ```sh
-uvx ruff check server/   # lint
-uvx ruff format server/  # format
+uvx ruff check server/    # lint
+uvx ruff format server/   # format
 ```
 
-Quy tắc thiết kế tool: tên động từ rõ ràng, docstring tiếng Việt mô tả từng tham số (Claude đọc docstring để biết cách gọi), kết quả JSON rút gọn các trường hữu ích kèm `url` để mở trực tiếp.
+Tool-design conventions: clear verb names, docstrings that describe every parameter (Claude reads them to learn how to call the tool), and trimmed JSON results that include a `url` for direct access.
 
-## Bảo mật
+## Contributing
 
-- `.mcp.json` **không chứa key** — chỉ khai báo cách chạy server; API key đọc từ biến môi trường shell. Kiểm tra không lọt secret: `git grep -iE "api[_-]?key.*[a-f0-9]{40}" $(git rev-list --all)` phải rỗng.
-- Key không bao giờ được in ra log hay kết quả tool.
-- Nếu key từng bị lộ (dán vào chat, commit nhầm...), thu hồi ngay tại **My account → Access tokens** và tạo key mới.
+Issues and pull requests are welcome. Please:
 
-## Giấy phép
+1. Keep the server a single, dependency-light file (PEP 723 inline metadata).
+2. Run `uvx ruff check server/` and `uvx ruff format server/` before opening a PR.
+3. Describe the OpenProject API endpoints your change touches.
 
-MIT — xem [LICENSE](LICENSE).
+## License
+
+[MIT](LICENSE) © 2026 Promete AI

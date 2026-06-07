@@ -4,14 +4,14 @@
     "name": "Promete AI"
   },
   "metadata": {
-    "description": "Plugin nội bộ của Promete AI cho Claude Code",
+    "description": "Plugins by Promete AI for Claude Code",
     "version": "1.0.0"
   },
   "plugins": [
     {
       "name": "openproject-mcp",
       "source": "./",
-      "description": "Quản lý công việc OpenProject (manage.promete.ai) bằng AI — work packages, time tracking, báo cáo",
+      "description": "Manage OpenProject with AI — work packages, time tracking, reports",
       "version": "0.2.0",
       "author": { "name": "Promete AI" }
     }

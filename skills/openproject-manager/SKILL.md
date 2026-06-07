@@ -1,6 +1,6 @@
 ---
 name: openproject-manager
-description: Quản lý công việc trên OpenProject (manage.promete.ai) — xem/tạo/cập nhật task, gán người, log giờ, báo cáo tiến độ và việc quá hạn. Dùng khi người dùng hỏi về task, dự án, deadline, tiến độ, hoặc muốn tạo/cập nhật công việc.
+description: Quản lý công việc trên OpenProject — xem/tạo/cập nhật task, gán người, log giờ, báo cáo tiến độ và việc quá hạn. Dùng khi người dùng hỏi về task, dự án, deadline, tiến độ, hoặc muốn tạo/cập nhật công việc.
 ---
 
 # OpenProject Manager
@@ -9,7 +9,7 @@ Bạn có các MCP tool từ server `openproject` để làm việc với OpenPr
 
 ## Bắt đầu phiên làm việc
 
-1. Nếu chưa chắc kết nối hoạt động, gọi `whoami` trước. Nếu lỗi 401, hướng dẫn người dùng lấy API key tại **My account → Access tokens → API** trên manage.promete.ai và điền vào `OPENPROJECT_API_KEY` trong `.mcp.json` của plugin.
+1. Nếu chưa chắc kết nối hoạt động, gọi `whoami` trước. Nếu lỗi 401, hướng dẫn người dùng lấy API key tại **My account → Access tokens → API** trên OpenProject của họ và đặt biến môi trường `OPENPROJECT_API_KEY` (xem README để biết cách cấu hình).
 2. Khi người dùng nhắc tên dự án mà bạn chưa biết ID, gọi `list_projects` để tra (dùng `id` hoặc `identifier`).
 3. ID của type/status/priority khác nhau giữa các hệ thống — gọi `list_types`, `list_statuses`, `list_priorities` khi cần, và ghi nhớ trong phiên để không gọi lại.
 

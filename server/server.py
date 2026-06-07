@@ -9,7 +9,7 @@
 
 Cấu hình qua biến môi trường (đặt trong .mcp.json của plugin):
 
-  OPENPROJECT_URL              URL của OpenProject (vd: https://manage.promete.ai)
+  OPENPROJECT_URL              URL của OpenProject (vd: https://your-openproject.example.com)
   OPENPROJECT_API_KEY          API key cá nhân (My account → Access tokens → API)
   OPENPROJECT_TIMEOUT_SECONDS  Timeout request (mặc định 30)
 
