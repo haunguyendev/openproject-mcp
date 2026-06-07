@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1] - 2026-06-07
+
+### Thay đổi
+- Chuyển sang đọc `OPENPROJECT_API_KEY` từ biến môi trường shell — `.mcp.json` không còn chứa secret và được commit vào repo (bỏ `.mcp.json.example`).
+- Thêm `.claude-plugin/marketplace.json` — cài trực tiếp qua `/plugin marketplace add`.
+- README: hướng dẫn cài qua marketplace cho Claude Code, cấu hình key qua `~/.zshrc`.
+
 ## [0.2.0] - 2026-06-07
 
 ### Thay đổi

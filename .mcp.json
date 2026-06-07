@@ -9,7 +9,6 @@
       ],
       "env": {
         "OPENPROJECT_URL": "https://manage.promete.ai",
-        "OPENPROJECT_API_KEY": "<dán-API-key-của-bạn-vào-đây>",
         "OPENPROJECT_TIMEOUT_SECONDS": "30"
       }
     }

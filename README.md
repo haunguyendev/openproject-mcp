@@ -2,15 +2,16 @@
 
 MCP server + plugin Claude (Cowork / Claude Code / Claude Desktop) cho **OpenProject tự host** — quản lý công việc bằng AI: xem/tạo/cập nhật task, gán người, log giờ, báo cáo tiến độ.
 
-> ⚠️ **Bảo mật:** file `.mcp.json` chứa API key và đã nằm trong `.gitignore` — **không bao giờ commit nó**. Dùng `.mcp.json.example` làm mẫu.
+> 🔑 **Bảo mật:** repo này **không chứa API key**. File `.mcp.json` chỉ khai báo cách chạy server; key được đọc từ **biến môi trường shell** (`OPENPROJECT_API_KEY`) — mỗi người dùng key riêng, không secret nào lên git.
 
 ## Cấu trúc
 
 ```
 openproject-mcp/
-├── .claude-plugin/plugin.json       # Manifest plugin
-├── .mcp.json.example                # Mẫu cấu hình (copy thành .mcp.json, điền key)
-├── .gitignore                       # Chặn secret + file rác
+├── .claude-plugin/
+│   ├── plugin.json                  # Manifest plugin
+│   └── marketplace.json             # Cho phép cài qua /plugin marketplace
+├── .mcp.json                        # Khai báo MCP server (không chứa secret)
 ├── server/server.py                 # MCP server Python (FastMCP, PEP 723)
 ├── skills/openproject-manager/      # Skill hướng dẫn workflow cho Claude
 ├── pyproject.toml                   # Cấu hình ruff (dev)
@@ -40,26 +41,45 @@ openproject-mcp/
 
 - API key OpenProject: đăng nhập → avatar → **My account → Access tokens → API**.
 
-### 2. Cấu hình
+### 2. Cấu hình API key
+
+Thêm vào `~/.zshrc` (hoặc `~/.bashrc`):
 
 ```sh
-cp .mcp.json.example .mcp.json
-# rồi mở .mcp.json, điền OPENPROJECT_URL và OPENPROJECT_API_KEY
+export OPENPROJECT_API_KEY="<api-key-của-bạn>"
 ```
 
-| Biến | Ý nghĩa | Mặc định |
-|---|---|---|
-| `OPENPROJECT_URL` | URL OpenProject (**bắt buộc**) | — |
-| `OPENPROJECT_API_KEY` | API key cá nhân (**bắt buộc**) | — |
-| `OPENPROJECT_TIMEOUT_SECONDS` | Timeout request | `30` |
+Mở Terminal mới (hoặc `source ~/.zshrc`) để biến có hiệu lực. Server đọc key từ môi trường — không cần sửa file nào trong repo.
+
+| Biến | Ý nghĩa | Nguồn | Mặc định |
+|---|---|---|---|
+| `OPENPROJECT_API_KEY` | API key cá nhân (**bắt buộc**) | Shell env (`~/.zshrc`) | — |
+| `OPENPROJECT_URL` | URL OpenProject | `.mcp.json` | `https://manage.promete.ai` |
+| `OPENPROJECT_TIMEOUT_SECONDS` | Timeout request | `.mcp.json` | `30` |
+
+> Muốn trỏ sang OpenProject khác? Sửa `OPENPROJECT_URL` trong `.mcp.json` hoặc export biến cùng tên trong shell.
 
 > API v3 của OpenProject dùng Basic Auth với username `apikey`, password = API key — server xử lý sẵn.
 
 ### 3a. Dùng với Claude Code
 
+**Thử nhanh (không cài):**
+
 ```sh
+cd /thư/mục/chứa/plugin
 claude --plugin-dir ./openproject-mcp
 ```
+
+**Cài cố định từ repo (khuyến nghị cho team):** repo này đồng thời là marketplace (có sẵn `.claude-plugin/marketplace.json`). Trong Claude Code:
+
+```
+/plugin marketplace add <user-hoặc-org>/openproject-mcp
+/plugin install openproject-mcp@promete-plugins
+```
+
+Plugin lấy API key từ biến môi trường (xem mục **2. Cấu hình API key**) — chỉ cần đã `export OPENPROJECT_API_KEY` trong shell là chạy được ngay, không phải sửa file nào sau khi cài.
+
+Kiểm tra: gõ `/mcp` → server `openproject` hiện **connected** → hỏi "Tôi là ai trên OpenProject?". Lần khởi động đầu hơi chậm do `uv` tải thư viện.
 
 ### 3b. Dùng với Claude Desktop
 

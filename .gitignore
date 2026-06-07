@@ -1,5 +1,4 @@
-# Secrets — KHÔNG commit cấu hình chứa API key
-.mcp.json
+# File local chứa hướng dẫn có token — không commit
 CAI-DAT-CLAUDE-DESKTOP.md
 
 # Python
