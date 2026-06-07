@@ -1,6 +1,6 @@
 # Project Roadmap — openproject-mcp
 
-## Current Version: 0.4.0 (2026-06-07)
+## Current Version: 0.5.0 (2026-06-07)
 
 **Status:** Stable, production-ready  
 **Shipped:** All core features; news tools recently added

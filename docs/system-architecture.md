@@ -25,7 +25,7 @@ graph LR
 import tools_admin, tools_coder, tools_news, ...
 from app import mcp
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 def main() -> None:
     log.info("openproject-mcp v%s — base_url=%s", __version__, BASE_URL)

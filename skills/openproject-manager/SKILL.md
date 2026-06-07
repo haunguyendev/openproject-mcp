@@ -18,7 +18,7 @@ Xác định vai trò từ yêu cầu, rồi **đọc file reference tương ứ
 
 | Tín hiệu trong câu hỏi | Vai trò | Đọc file |
 |---|---|---|
-| "việc của tôi", "log giờ", "comment", "đổi trạng thái việc của tôi" | member | `references/member.md` |
+| "việc của tôi", "log giờ", "comment", "đổi trạng thái việc của tôi", "thông báo của tôi", "cập nhật mới nhất của task" | member | `references/member.md` |
 | "tiến độ", "quá hạn", "workload", "milestone/version", "báo cáo", "portfolio", "export" | project manager | `references/project-manager.md` |
 | "bug", "subtask", "quan hệ/relation", "version/sprint", "ước lượng vs thực tế" | coder | `references/coder.md` |
 | "tạo/đóng dự án", "thêm/xóa thành viên", "role", "user" | admin | `references/admin.md` |
@@ -30,7 +30,8 @@ Xác định vai trò từ yêu cầu, rồi **đọc file reference tương ứ
 
 ## Quy tắc dùng chung (mọi vai trò)
 
-- **Đọc tự do**: list/get/report/whoami/list_versions/get_relations... gọi thoải mái.
+- **Đọc tự do**: list/get/report/whoami/list_versions/get_relations/list_activities/list_notifications... gọi thoải mái.
+- **mark_notification_read**: ghi nhẹ, cá nhân, vô hại → không cần xác nhận.
 - **Ghi phải xác nhận trước**: create/update/add_comment/log_time/create_relation/add_member... → tóm tắt payload (việc gì, dự án nào, ai, khi nào) và chờ người dùng đồng ý, trừ khi họ đã nêu đủ và yêu cầu rõ ràng.
 - **Cập nhật work package**: LUÔN gọi `get_work_package` lấy `lock_version` mới nhất rồi truyền vào `update_work_package`; gặp 409 → lấy lại lock_version và thử lại 1 lần.
 - **Tên → ID**: tra qua `list_projects`, `list_project_members`, `list_types`, `list_statuses`, `list_priorities`, `list_versions`, `list_roles`; nhớ trong phiên để khỏi gọi lại.
@@ -48,14 +49,15 @@ Xác định vai trò từ yêu cầu, rồi **đọc file reference tương ứ
 
 Thiếu quyền → API trả 403; báo người dùng rõ ràng (tài khoản không đủ quyền), không thử vòng vo.
 
-## Danh mục tool (38)
+## Danh mục tool (41)
 
-- **Work packages**: list_work_packages (lọc project/status/assignee/type/version/due_within), get_work_package, create_work_package (có parent_id), update_work_package, add_comment.
+- **Work packages**: list_work_packages (lọc project/status/assignee/type/version/due_within), get_work_package (kèm custom_fields), create_work_package (có parent_id, custom_fields), update_work_package (parent_id, custom_fields), add_comment, list_activities (đọc bình luận/lịch sử).
 - **Dự án & metadata**: list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami.
 - **Coder**: list_children, get_relations, create_relation.
 - **Time**: log_time, list_time_entries, my_time_summary.
 - **Báo cáo**: report_overdue, report_my_tasks, report_project_progress, report_workload, report_status_board, report_time, report_portfolio.
 - **News**: list_news, get_news, create_news (xác nhận), update_news (xác nhận), delete_news (xác nhận 2 lần).
+- **Notifications**: list_notifications (chưa đọc mặc định), mark_notification_read.
 - **Admin**: list_users, get_user, list_roles, create_project, update_project, add_member, update_member, remove_member.
 
 ## Phạm vi

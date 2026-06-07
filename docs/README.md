@@ -58,7 +58,7 @@ Complete project documentation for the OpenProject MCP server and Claude plugin.
 
 ## Key Facts
 
-- **Current version:** 0.4.0 (shipped 2026-06-07)
+- **Current version:** 0.5.0 (shipped 2026-06-07)
 - **Tools:** 38 across 4 personas (member, project-manager, coder, admin)
 - **Server:** Single Python MCP server; modularized (13 files <230 LOC each)
 - **Stack:** FastMCP + httpx; dependencies via PEP 723; run via `uv run --script`

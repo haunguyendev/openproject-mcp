@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-06-07
+
+### Added
+- `list_activities(wp_id)` — read a work package's comments and change history (API v3 `/work_packages/{id}/activities`); distinguishes comments from field changes.
+- Custom fields on work packages: `get_work_package` now returns `custom_fields`; `create_work_package` and `update_work_package` accept a `custom_fields` param (by field ID) — scalar fields set at top level, link-type fields (user/version/list) via href. New pure `server/custom_fields.py` (`extract_custom_fields`, `apply_custom_fields`) with unit tests.
+- Personal notifications: `list_notifications` (unread by default) and `mark_notification_read` (API v3 `/notifications`, mark via `read_ian`). New `server/tools_notifications.py`. Requires OpenProject ~12.1+.
+- `_fmt_activity` and `_fmt_notification` formatters + unit tests.
+
 ## [0.4.0] - 2026-06-07
 
 ### Added

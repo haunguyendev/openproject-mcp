@@ -3,7 +3,8 @@
 from typing import Any
 
 from app import mcp
-from formatters import _fmt_wp, _out
+from custom_fields import apply_custom_fields, extract_custom_fields
+from formatters import _fmt_activity, _fmt_wp, _out
 from op_client import _collection, _req
 
 
@@ -70,7 +71,25 @@ def get_work_package(wp_id: int) -> str:
     detail["spent_time"] = wp.get("spentTime")
     detail["created_at"] = wp.get("createdAt")
     detail["updated_at"] = wp.get("updatedAt")
+    custom = extract_custom_fields(wp)
+    if custom:
+        detail["custom_fields"] = custom
     return _out(detail)
+
+
+@mcp.tool()
+def list_activities(wp_id: int) -> str:
+    """Liệt kê activity (bình luận và thay đổi) của một work package — cũ → mới.
+
+    Dùng để xem lịch sử trao đổi/cập nhật của một việc.
+
+    Args:
+        wp_id: ID work package.
+    """
+    # /activities là collection KHÔNG phân trang → trả hết; pageSize/offset bị bỏ qua.
+    data = _collection(f"/work_packages/{wp_id}/activities")
+    items = [_fmt_activity(a) for a in data.get("_embedded", {}).get("elements", [])]
+    return _out({"wp_id": wp_id, "total": data.get("total"), "activities": items})
 
 
 @mcp.tool()
@@ -84,6 +103,7 @@ def create_work_package(
     start_date: str | None = None,
     priority_id: int | None = None,
     parent_id: int | None = None,
+    custom_fields: dict | None = None,
 ) -> str:
     """Tạo work package mới trong một dự án.
 
@@ -97,6 +117,8 @@ def create_work_package(
         start_date: Ngày bắt đầu, YYYY-MM-DD.
         priority_id: ID độ ưu tiên.
         parent_id: ID work package cha (tạo subtask bên dưới nó).
+        custom_fields: Custom field theo ID, vd {"1": "Foo", "2": 42}. Trường liên kết
+            (user/version/list) truyền href, vd {"3": "/api/v3/users/14"}.
     """
     body: dict[str, Any] = {
         "subject": subject,
@@ -115,6 +137,8 @@ def create_work_package(
         body["_links"]["priority"] = {"href": f"/api/v3/priorities/{priority_id}"}
     if parent_id:
         body["_links"]["parent"] = {"href": f"/api/v3/work_packages/{parent_id}"}
+    if custom_fields:
+        apply_custom_fields(body, custom_fields)
 
     wp = _req("POST", f"/projects/{project}/work_packages", body=body)
     return _out({"created": _fmt_wp(wp)})
@@ -131,8 +155,9 @@ def update_work_package(
     due_date: str | None = None,
     done_ratio: int | None = None,
     parent_id: int | None = None,
+    custom_fields: dict | None = None,
 ) -> str:
-    """Cập nhật work package (đổi trạng thái, gán người, sửa hạn, đổi cha...).
+    """Cập nhật work package (đổi trạng thái, gán người, sửa hạn, đổi cha, custom field...).
 
     Lấy lock_version mới nhất bằng get_work_package trước khi gọi.
 
@@ -146,6 +171,8 @@ def update_work_package(
         due_date: Hạn chót mới, YYYY-MM-DD.
         done_ratio: % hoàn thành (0-100).
         parent_id: ID work package cha mới (di chuyển task này thành subtask của nó).
+        custom_fields: Custom field theo ID, vd {"1": "Foo", "2": 42}. Trường liên kết
+            truyền href, vd {"3": "/api/v3/users/14"}.
     """
     body: dict[str, Any] = {"lockVersion": lock_version, "_links": {}}
     if subject is not None:
@@ -162,6 +189,8 @@ def update_work_package(
         body["_links"]["assignee"] = {"href": f"/api/v3/users/{assignee_id}"}
     if parent_id:
         body["_links"]["parent"] = {"href": f"/api/v3/work_packages/{parent_id}"}
+    if custom_fields:
+        apply_custom_fields(body, custom_fields)
     if not body["_links"]:
         del body["_links"]
 

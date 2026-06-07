@@ -15,6 +15,8 @@ Mục tiêu: quản lý bug/feature của mình, subtask, quan hệ giữa việ
 | "Đánh dấu #123 chặn #150" | `create_relation(from_id=123, to_id=150, relation_type="blocks")` |
 | "Ước lượng vs thực tế #123" | `get_work_package(123)` (estimated_time / spent_time) |
 | "Chuyển bug qua workflow" | `list_statuses` → `get_work_package` → `update_work_package(status_id=...)` |
+| "Lịch sử/bình luận của #123" | `list_activities(123)` |
+| "Sửa custom field của #123" | `get_work_package(123)` (xem `custom_fields` + lock_version) → `update_work_package(123, lock_version, custom_fields={...})` |
 
 ## Loại quan hệ (create_relation)
 
@@ -32,6 +34,12 @@ Mục tiêu: quản lý bug/feature của mình, subtask, quan hệ giữa việ
 
 - Tạo subtask: `create_work_package(project, subject, parent_id=...)`. Di chuyển task có sẵn thành con của task khác: `update_work_package(wp_id, lock_version, parent_id=...)` (lấy `lock_version` từ `get_work_package`).
 - Khuyến nghị cha **cùng project** với con. Cấu hình OpenProject có thể từ chối cha khác project — nếu bị từ chối, báo lại rõ và gợi ý cùng project.
+
+## Custom fields
+
+- Xem giá trị: `get_work_package` trả về `custom_fields` (nếu có), key dạng `customFieldN`.
+- Ghi theo ID: `custom_fields={"1": "Foo", "2": 42}`. Trường **liên kết** (user/version/list) truyền **href**, vd `{"3": "/api/v3/users/14"}`.
+- Không chắc N là gì → xem trước bằng `get_work_package`; tên người-đọc của field phải tra schema (chưa expose), nên dựa vào ID quan sát được.
 
 ## Quy tắc chung
 
