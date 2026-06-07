@@ -8,6 +8,10 @@
 [![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
 ![Version](https://img.shields.io/badge/version-0.5.0-green.svg)
 
+<p align="center">
+  <img src="docs/assets/openproject-mcp-claude-hero.webp" alt="OpenProject + MCP + Claude" width="100%">
+</p>
+
 An [MCP](https://modelcontextprotocol.io/) server + plugin that connects Claude (Claude Code, Claude Desktop, Cowork) to any self-hosted OpenProject instance via its [REST API v3](https://www.openproject.org/docs/api/). Ask Claude things like *"what's overdue in project Website?"* or *"create a task and assign it to Nam, due Friday"* and it calls the right API for you.
 
 ## Table of Contents
