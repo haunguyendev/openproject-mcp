@@ -21,9 +21,7 @@ def list_news(project: str | None = None, page_size: int = 25, offset: int = 1) 
         page_size: Số kết quả mỗi trang (mặc định 25).
         offset: Trang (bắt đầu từ 1).
     """
-    filters = (
-        [{"project_id": {"operator": "=", "values": [str(project)]}}] if project else None
-    )
+    filters = [{"project_id": {"operator": "=", "values": [str(project)]}}] if project else None
     data = _collection("/news", filters, page_size, offset, sort=[["created_at", "desc"]])
     items = [_fmt_news(n) for n in data.get("_embedded", {}).get("elements", [])]
     return _out({"total": data.get("total"), "count": len(items), "items": items})
