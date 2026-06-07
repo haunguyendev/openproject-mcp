@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-06-07
+
+### Added
+- Persona-aware skill: one router `SKILL.md` + `references/{member,project-manager,coder,admin,reporting}.md`; role detection via intent + `whoami` roles.
+- Coder tools: `list_children`, `get_relations`, `create_relation`; subtasks via `create_work_package(parent_id=...)`.
+- Manager tools: `list_versions`, `report_workload`, `report_status_board`, `report_time`, `report_portfolio`.
+- Member tool: `my_time_summary` (hours grouped by project and work package).
+- Admin tools: `list_users`, `get_user`, `list_roles`, `create_project`, `update_project` (incl. archive), `add_member`, `update_member`, `remove_member` — confirm-first, double-confirm for destructive.
+- New filters on `list_work_packages`: `type_id`, `version_id`, `assignee_id`, `due_within_days`.
+- Reporting capability: CSV export + professional HTML reports from report-tool JSON.
+- Unit tests for pure helpers; CI test job.
+
+### Changed
+- Split `server/server.py` into a package (config, op_client, formatters, app, tools_*) for maintainability; behavior of the original 16 tools unchanged.
+- Client now surfaces HTTP 403 (insufficient permission) with a clear message.
+
 ## [0.2.1] - 2026-06-07
 
 ### Changed
