@@ -1,0 +1,15 @@
+# Secrets — KHÔNG commit cấu hình chứa API key
+.mcp.json
+CAI-DAT-CLAUDE-DESKTOP.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

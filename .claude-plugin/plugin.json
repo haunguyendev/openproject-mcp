@@ -1,0 +1,10 @@
+{
+  "name": "openproject-mcp",
+  "version": "0.2.0",
+  "license": "MIT",
+  "description": "Quản lý công việc OpenProject (manage.promete.ai) bằng AI — work packages, dự án, time tracking và báo cáo tổng hợp.",
+  "author": {
+    "name": "Promete AI"
+  },
+  "keywords": ["mcp", "openproject", "project-management", "work-packages", "time-tracking"]
+}
