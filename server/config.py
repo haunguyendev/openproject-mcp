@@ -61,6 +61,18 @@ def is_http_transport(env: Mapping[str, str] = os.environ) -> bool:
     return _transport_of(env) == "http"
 
 
+def oauth_client(env: Mapping[str, str] = os.environ) -> tuple[str, str | None] | None:
+    """Client OAuth pre-registered cho DCR (Claude.ai tự đăng ký → user khỏi dán tay).
+
+    None = chưa cấu hình → giữ thin (Advanced settings dán tay). Có `OP_OAUTH_CLIENT_ID`:
+    trả (client_id, secret|None); không có secret = public client (PKCE, không lộ secret).
+    """
+    cid = env.get("OP_OAUTH_CLIENT_ID", "").strip()
+    if not cid:
+        return None
+    return (cid, env.get("OP_OAUTH_CLIENT_SECRET", "").strip() or None)
+
+
 def resolve_transport(env: Mapping[str, str]) -> TransportConfig:
     """Phân giải transport + tham số HTTP từ một mapping môi trường.
 

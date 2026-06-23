@@ -5,8 +5,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
+import config  # noqa: E402
 from oauth_metadata import (  # noqa: E402
     authorization_server_metadata,
+    client_registration_response,
     needs_challenge,
     protected_resource_metadata,
     www_authenticate_header,
@@ -63,3 +65,52 @@ def test_no_challenge_when_bearer_present():
 
 def test_empty_bearer_is_challenged():
     assert needs_challenge("Bearer ", "") is True  # token rỗng = chưa xác thực
+
+
+# --- DCR (auto-register, bỏ bước dán client) ---
+
+
+def test_no_registration_endpoint_when_dcr_off():
+    m = authorization_server_metadata(MCP, OP)
+    assert "registration_endpoint" not in m
+    assert m["token_endpoint_auth_methods_supported"] == [
+        "client_secret_basic",
+        "client_secret_post",
+    ]
+
+
+def test_registration_endpoint_when_public_client():
+    m = authorization_server_metadata(MCP, OP, dcr_client=("cid-123", None))
+    assert m["registration_endpoint"] == f"{MCP}/oauth/register"
+    assert m["token_endpoint_auth_methods_supported"] == ["none"]  # public = không secret
+
+
+def test_registration_endpoint_when_confidential_client():
+    m = authorization_server_metadata(MCP, OP, dcr_client=("cid-123", "sec-456"))
+    assert m["registration_endpoint"] == f"{MCP}/oauth/register"
+    assert "client_secret_post" in m["token_endpoint_auth_methods_supported"]
+
+
+def test_client_registration_response_public():
+    req = {"redirect_uris": ["https://claude.ai/api/mcp/auth_callback"], "client_name": "Claude"}
+    r = client_registration_response("cid-123", None, req)
+    assert r["client_id"] == "cid-123"
+    assert "client_secret" not in r  # public client
+    assert r["token_endpoint_auth_method"] == "none"
+    assert r["redirect_uris"] == ["https://claude.ai/api/mcp/auth_callback"]  # echo
+
+
+def test_client_registration_response_confidential():
+    r = client_registration_response("cid-123", "sec-456", {})
+    assert r["client_id"] == "cid-123"
+    assert r["client_secret"] == "sec-456"
+    assert r["token_endpoint_auth_method"] == "client_secret_post"
+
+
+def test_oauth_client_helper():
+    assert config.oauth_client({}) is None  # chưa cấu hình → thin (dán tay)
+    assert config.oauth_client({"OP_OAUTH_CLIENT_ID": "cid"}) == ("cid", None)  # public
+    assert config.oauth_client({"OP_OAUTH_CLIENT_ID": "cid", "OP_OAUTH_CLIENT_SECRET": "s"}) == (
+        "cid",
+        "s",
+    )  # confidential

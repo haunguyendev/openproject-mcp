@@ -56,7 +56,24 @@ def build_http_app(mcp, cfg: config.TransportConfig) -> Starlette:
         return JSONResponse(om.protected_resource_metadata(public_url))
 
     async def auth_server(_request):
-        return JSONResponse(om.authorization_server_metadata(public_url, op_url))
+        meta = om.authorization_server_metadata(
+            public_url, op_url, dcr_client=config.oauth_client()
+        )
+        return JSONResponse(meta)
+
+    async def register(request):
+        """DCR (RFC 7591): trả client pre-registered → Claude.ai tự đăng ký, user khỏi dán."""
+        client = config.oauth_client()
+        if client is None:
+            return JSONResponse({"error": "registration_not_supported"}, status_code=404)
+        try:
+            requested = await request.json()
+        except Exception:
+            requested = {}
+        cid, secret = client
+        return JSONResponse(
+            om.client_registration_response(cid, secret, requested), status_code=201
+        )
 
     mcp_asgi = mcp.streamable_http_app()  # đã gắn TransportSecuritySettings qua mcp.settings
     return Starlette(
@@ -65,6 +82,7 @@ def build_http_app(mcp, cfg: config.TransportConfig) -> Starlette:
             Route(om.PROTECTED_RESOURCE_PATH, protected_resource),
             Route(om.PROTECTED_RESOURCE_PATH + om.MCP_PATH, protected_resource),
             Route("/.well-known/oauth-authorization-server", auth_server),
+            Route("/oauth/register", register, methods=["POST"]),  # DCR (public)
             Mount("/", app=OAuthChallenge(mcp_asgi, public_url)),
         ],
         lifespan=lambda _app: mcp.session_manager.run(),
