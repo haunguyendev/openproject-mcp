@@ -356,11 +356,13 @@ Claude will call the `whoami` tool. You should see your name and roles.
 | `MCP_PORT` | ❌ | 8000 | Bind port |
 | `MCP_PUBLIC_URL` | ✅ | http://host:port | Public HTTPS URL of the MCP (for OAuth issuer) |
 | `ALLOWED_HOSTS` | ✅ | — | CSV of reverse-proxy domains (DNS-rebinding protection) |
-| `ALLOWED_ORIGINS` | ❌ | — | CSV of CORS origins for OAuth callback |
+| `ALLOWED_ORIGINS` | ❌ | — | CSV of CORS origins (e.g. `https://claude.ai`) |
+| `OP_OAUTH_CLIENT_ID` | ❌ | — | Enables auto-registration (DCR): users connect **without pasting** credentials. Use a **public** OpenProject OAuth app. |
+| `OP_OAUTH_CLIENT_SECRET` | ❌ | — | Only for a confidential OAuth app. **Not recommended** — the open registration endpoint would serve it publicly. Prefer a public client. |
 | `OP_MCP_ENABLE_ADMIN_DESTRUCTIVE` | ❌ | false | Set to `true` to show all 44 tools (default: 37 on http) |
 | `OPENPROJECT_TIMEOUT_SECONDS` | ❌ | 30 | Per-request timeout |
 
-**Critical:** Do NOT set `OPENPROJECT_API_KEY` in http mode (each user authenticates via OAuth).
+**Critical:** Do NOT set `OPENPROJECT_API_KEY` in http mode (each user authenticates via OAuth). For the recommended public-client setup there are **no secrets at all** in the MCP config.
 
 ### Security & Exposure
 
@@ -392,6 +394,58 @@ No data migration needed; the stdio path is unchanged.
 | "DNS rebinding blocked" | Reverse proxy hostname mismatch | Ensure `ALLOWED_HOSTS` matches reverse-proxy domain |
 | Claude can't find MCP | URL wrong or proxy not running | Check `MCP_PUBLIC_URL` in Claude settings; verify reverse proxy is up |
 | "No credential found" | User not authenticated | OAuth redirect didn't complete; re-authenticate in Claude.ai |
+
+### Auto-registration (DCR) — connect without pasting credentials
+
+By default, each user must paste a `client_id`/`client_secret` into Claude.ai's **Advanced
+settings** once. To remove that step entirely, configure **Dynamic Client Registration**:
+
+1. In OpenProject, register the OAuth application as a **public client** (Doorkeeper:
+   *uncheck "Confidential"*), redirect URI `https://claude.ai/api/mcp/auth_callback`, scope
+   `api_v3`. Note its `client_id`.
+2. Set `OP_OAUTH_CLIENT_ID=<that client_id>` on the MCP (no secret).
+3. The MCP then advertises a `registration_endpoint`; Claude.ai auto-registers and the user
+   **only clicks Connect → logs into OpenProject**.
+
+This is the recommended production setup: **no secrets anywhere** (no API key, no client
+secret), security rests on PKCE + each user's OpenProject login. A **confidential** client
+(`OP_OAUTH_CLIENT_SECRET` set) is supported but **discouraged** — the open registration
+endpoint would return the secret to any caller; the server logs a startup warning if you do.
+
+### Kubernetes (production)
+
+Ready-to-apply manifests are in [`deploy/k8s/openproject-mcp.yaml`](../deploy/k8s/openproject-mcp.yaml)
+(Namespace, ConfigMap, Deployment, Service, Ingress). They assume the **public-client / DCR**
+setup above, so **all config is a ConfigMap — there are no Kubernetes Secrets**.
+
+1. **Build & push the image** (from the repo root `Dockerfile`):
+   ```sh
+   docker build -t <REGISTRY>/openproject-mcp:0.8.0 .
+   docker push <REGISTRY>/openproject-mcp:0.8.0
+   ```
+2. **Edit the placeholders** in `deploy/k8s/openproject-mcp.yaml`: `<REGISTRY>`, your
+   OpenProject URL, the public MCP host (`mcp.company.com`), and `<OPENPROJECT_OAUTH_CLIENT_ID>`.
+3. **Apply:**
+   ```sh
+   kubectl apply -f deploy/k8s/openproject-mcp.yaml
+   kubectl -n openproject-mcp rollout status deploy/openproject-mcp
+   curl https://mcp.company.com/.well-known/oauth-protected-resource   # sanity check
+   ```
+4. **Onboard users:** each person adds a Claude.ai custom connector with URL
+   `https://mcp.company.com/mcp` (no Advanced settings) → Connect → log into OpenProject.
+
+Notes for the cluster:
+- **Stateless & horizontally scalable** — `stateless_http=True` means no server-side
+  session, so multiple replicas need **no sticky sessions** (manifest ships `replicas: 2`).
+- **Non-root** (`runAsNonRoot`, uid 1000, all capabilities dropped). Do **not** enable
+  `readOnlyRootFilesystem` unless you mount a writable volume at `/opt/uv-cache` — `uv` writes
+  its cache on each run.
+- **Ingress + TLS** — the example uses the nginx ingress class + cert-manager; adapt to your
+  controller. SSE-friendly annotations (`proxy-buffering: off`, long read timeout) are included.
+  The Ingress host **must** match `ALLOWED_HOSTS` and `MCP_PUBLIC_URL`.
+- **Health probes** hit the public `/.well-known/oauth-protected-resource` (no auth needed).
+- **OpenProject reachability** — the MCP calls `OPENPROJECT_URL` over HTTPS; ensure egress
+  (NetworkPolicy/firewall) from the pods to OpenProject is allowed.
 
 ---
 

@@ -1,0 +1,125 @@
+# OpenProject MCP — Kubernetes manifests (remote multi-user, PUBLIC OAuth).
+#
+# Đặc tính bảo mật: chế độ multi-user OAuth với PUBLIC client → KHÔNG có secret nào
+# (không OPENPROJECT_API_KEY, không client_secret). Toàn bộ cấu hình là ConfigMap.
+# Mỗi user tự đăng nhập OpenProject (RBAC enforce theo từng người); Claude.ai tự đăng ký
+# client (DCR) nên user chỉ Add connector + Connect, không dán gì.
+#
+# TRƯỚC KHI APPLY — thay các <PLACEHOLDER>:
+#   <REGISTRY>/openproject-mcp:0.8.0   ảnh đã build & push (xem Dockerfile ở repo root)
+#   https://openproject.company.com    URL OpenProject nội bộ (MCP gọi qua HTTPS)
+#   https://mcp.company.com            URL công khai của MCP (phải khớp Ingress host)
+#   mcp.company.com                    domain Ingress
+#   <OPENPROJECT_OAUTH_CLIENT_ID>      client_id của OAuth app PUBLIC (non-confidential)
+#
+# Áp dụng:  kubectl apply -f deploy/k8s/openproject-mcp.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openproject-mcp
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openproject-mcp-config
+  namespace: openproject-mcp
+data:
+  # MCP gọi OpenProject qua URL này (HTTPS).
+  OPENPROJECT_URL: "https://openproject.company.com"
+  # http transport (remote multi-user). Image đã mặc định http nhưng đặt rõ cho minh bạch.
+  MCP_TRANSPORT: "http"
+  MCP_HOST: "0.0.0.0"
+  MCP_PORT: "8000"
+  # URL công khai của chính MCP (issuer/resource OAuth) — PHẢI khớp Ingress host + HTTPS.
+  MCP_PUBLIC_URL: "https://mcp.company.com"
+  # Chống DNS-rebinding: host công khai mà Ingress forward tới pod.
+  ALLOWED_HOSTS: "mcp.company.com"
+  # Origin trình duyệt được phép (Claude.ai web).
+  ALLOWED_ORIGINS: "https://claude.ai"
+  # DCR: Claude.ai tự đăng ký bằng client_id này (PUBLIC → không secret).
+  OP_OAUTH_CLIENT_ID: "<OPENPROJECT_OAUTH_CLIENT_ID>"
+  # Tool phá dữ liệu ẩn mặc định trên remote (37/44). Đặt "true" nếu muốn bật.
+  OP_MCP_ENABLE_ADMIN_DESTRUCTIVE: "false"
+  OPENPROJECT_TIMEOUT_SECONDS: "15"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openproject-mcp
+  namespace: openproject-mcp
+  labels: { app: openproject-mcp }
+spec:
+  # Stateless (stateless_http=True, không session server-side) → scale ngang thoải mái, không sticky.
+  replicas: 2
+  selector:
+    matchLabels: { app: openproject-mcp }
+  template:
+    metadata:
+      labels: { app: openproject-mcp }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # user "mcp" trong image
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: openproject-mcp
+          image: <REGISTRY>/openproject-mcp:0.8.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { containerPort: 8000, name: http }
+          envFrom:
+            - configMapRef: { name: openproject-mcp-config }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          # uv cần ghi cache lúc chạy → KHÔNG bật readOnlyRootFilesystem (hoặc mount emptyDir vào /opt/uv-cache).
+          readinessProbe:
+            httpGet: { path: /.well-known/oauth-protected-resource, port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /.well-known/oauth-protected-resource, port: 8000 }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "50m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openproject-mcp
+  namespace: openproject-mcp
+spec:
+  selector: { app: openproject-mcp }
+  ports:
+    - { port: 80, targetPort: 8000, name: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openproject-mcp
+  namespace: openproject-mcp
+  annotations:
+    # TLS tự động (nếu dùng cert-manager). Bỏ nếu công ty dùng cert thủ công.
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Streamable HTTP có thể dùng SSE → tắt buffer + timeout dài (nginx ingress).
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["mcp.company.com"]
+      secretName: openproject-mcp-tls
+  rules:
+    - host: mcp.company.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: openproject-mcp
+                port: { number: 80 }
