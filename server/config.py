@@ -35,6 +35,7 @@ class TransportConfig:
     json_response: bool = True  # cấu hình đã verify end-to-end ở spike
     allowed_hosts: list[str] = field(default_factory=list)
     allowed_origins: list[str] = field(default_factory=list)
+    public_url: str = ""  # URL công khai HTTPS của MCP (issuer/resource OAuth — Phase 3A)
 
 
 def _csv(value: str | None) -> list[str]:
@@ -60,14 +61,18 @@ def resolve_transport(env: Mapping[str, str]) -> TransportConfig:
 
     `MCP_TRANSPORT` không phải "http" (kể cả rỗng/giá trị lạ) → stdio (an toàn, giữ flow cũ).
     """
+    host = env.get("MCP_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    port = _int(env.get("MCP_PORT"), 8000, "MCP_PORT")
+    public_url = env.get("MCP_PUBLIC_URL", "").strip().rstrip("/") or f"http://{host}:{port}"
     return TransportConfig(
         transport=_transport_of(env),
-        host=env.get("MCP_HOST", "127.0.0.1").strip() or "127.0.0.1",
-        port=_int(env.get("MCP_PORT"), 8000, "MCP_PORT"),
+        host=host,
+        port=port,
         stateless_http=env.get("MCP_STATELESS_HTTP", "true").strip().lower() != "false",
         json_response=env.get("MCP_JSON_RESPONSE", "true").strip().lower() != "false",
         allowed_hosts=_csv(env.get("ALLOWED_HOSTS")),
         allowed_origins=_csv(env.get("ALLOWED_ORIGINS")),
+        public_url=public_url,
     )
 
 

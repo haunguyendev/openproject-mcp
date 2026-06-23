@@ -43,7 +43,9 @@ __version__ = "0.7.0"
 
 
 def _run_http(cfg: TransportConfig) -> None:
-    """Chạy Streamable HTTP (multi-user). Bật DNS-rebinding/Origin protection (H3)."""
+    """Chạy Streamable HTTP (multi-user) + OAuth resource-server metadata (Phase 3A)."""
+    import http_app
+    import uvicorn
     from mcp.server.transport_security import TransportSecuritySettings
 
     # FastMCP factory cho host non-loopback mặc định KHÔNG bật bảo vệ → ta bật tường minh.
@@ -54,12 +56,18 @@ def _run_http(cfg: TransportConfig) -> None:
             "Production sau reverse proxy PHẢI đặt ALLOWED_HOSTS=<domain công khai>."
         )
     if API_KEY:
-        # http + env key toàn cục = fallback đơn-user: MỌI request không Bearer sẽ chạy
-        # dưới danh tính env này (không 401). OK cho smoke đơn-user; KHÔNG an toàn multi-user.
-        # Quyết định cứng (401 vs fallback) thuộc Phase 3 khi gắn auth per-user.
+        # http + env key toàn cục = fallback đơn-user: request không Bearer chạy dưới env
+        # identity (không 401). OK cho smoke đơn-user; multi-user thật phải BỎ env key.
         log.warning(
             "OPENPROJECT_API_KEY đang set ở http mode → fallback ĐƠN-USER (env identity) "
             "cho request không có Bearer. Multi-user thật: BỎ env key để buộc auth per-user."
+        )
+    if not cfg.public_url.startswith("https://"):
+        # OAuth/Claude.ai yêu cầu HTTPS; metadata sẽ quảng bá issuer/resource không-https → hỏng.
+        log.warning(
+            "MCP_PUBLIC_URL=%s không phải https — OAuth/Claude.ai cần HTTPS. "
+            "Đặt MCP_PUBLIC_URL=https://<domain công khai> khi deploy.",
+            cfg.public_url,
         )
 
     mcp.settings.host = cfg.host
@@ -72,14 +80,15 @@ def _run_http(cfg: TransportConfig) -> None:
         allowed_origins=cfg.allowed_origins,
     )
     log.info(
-        "transport=http host=%s port=%s stateless=%s allowed_hosts=%s allowed_origins=%s",
+        "transport=http host=%s port=%s public_url=%s stateless=%s allowed_hosts=%s",
         cfg.host,
         cfg.port,
+        cfg.public_url,
         cfg.stateless_http,
         allowed_hosts,
-        cfg.allowed_origins or "(none)",
     )
-    mcp.run(transport="streamable-http")
+    app = http_app.build_http_app(mcp, cfg)
+    uvicorn.run(app, host=cfg.host, port=cfg.port, log_level="warning")
 
 
 def main() -> None:
