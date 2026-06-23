@@ -77,6 +77,8 @@ def client_registration_response(
     }
     if client_secret is not None:
         resp["client_secret"] = client_secret
+        # RFC 7591 §3.2.1: client_secret_expires_at bắt buộc khi có secret (0 = không hết hạn).
+        resp["client_secret_expires_at"] = 0
     return resp
 
 

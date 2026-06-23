@@ -104,6 +104,7 @@ def test_client_registration_response_confidential():
     r = client_registration_response("cid-123", "sec-456", {})
     assert r["client_id"] == "cid-123"
     assert r["client_secret"] == "sec-456"
+    assert r["client_secret_expires_at"] == 0  # RFC 7591 §3.2.1 bắt buộc khi có secret
     assert r["token_endpoint_auth_method"] == "client_secret_post"
 
 

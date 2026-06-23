@@ -71,6 +71,16 @@ def _run_http(cfg: TransportConfig) -> None:
             "Đặt MCP_PUBLIC_URL=https://<domain công khai> khi deploy.",
             cfg.public_url,
         )
+    from config import oauth_client
+
+    client = oauth_client()
+    if client is not None and client[1] is not None:
+        # DCR mở trả client_secret cho MỌI người POST /oauth/register. Doorkeeper vẫn bắt buộc
+        # secret ở token endpoint kể cả có PKCE → secret bị lộ là rủi ro thật.
+        log.warning(
+            "OP_OAUTH_CLIENT_SECRET đang set + DCR bật → /oauth/register trả secret CÔNG KHAI. "
+            "PRODUCTION: dùng PUBLIC client (OpenProject app non-confidential) và BỎ secret."
+        )
 
     mcp.settings.host = cfg.host
     mcp.settings.port = cfg.port

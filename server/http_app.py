@@ -70,6 +70,8 @@ def build_http_app(mcp, cfg: config.TransportConfig) -> Starlette:
             requested = await request.json()
         except Exception:
             requested = {}
+        if not isinstance(requested, dict):  # body JSON hợp lệ nhưng là list/string → tránh 500
+            requested = {}
         cid, secret = client
         return JSONResponse(
             om.client_registration_response(cid, secret, requested), status_code=201
