@@ -4,8 +4,8 @@
 
 **openproject-mcp** is an MCP (Model Context Protocol) server and Claude plugin that bridges Claude AI with self-hosted OpenProject instances. It enables natural-language project management through a comprehensive set of tools for work packages, projects, members, time tracking, and reporting.
 
-**Version:** 0.7.0  
-**Status:** Stable, active development  
+**Version:** 0.8.0  
+**Status:** Stable, active development; remote multi-user shipped  
 **License:** MIT
 
 ## Problem Statement
@@ -50,11 +50,11 @@ Without context switching to OpenProject's web interface. This plugin solves tha
 
 ### Non-Functional Requirements
 
-- **Dependency-Light:** Only `mcp` and `httpx`, declared inline via PEP 723, run via `uv run --script`
-- **Resilient:** Single HTTP client with retry on 429/5xx (except POST), clear auth failure messages
-- **No secrets in repo:** Credentials read from environment, never committed
+- **Dependency-Light:** Only `mcp` (≥1.8.0 for HTTP transport support), `httpx`, `starlette`, `uvicorn` (latter two for HTTP mode only), declared inline via PEP 723, run via `uv run --script`
+- **Resilient:** Single HTTP client with retry on 429/5xx (except POST), clear auth failure messages; per-request credential flow for multi-user remote
+- **No secrets in repo:** Credentials read from environment (stdio) or per-request Bearer token (HTTP), never committed
 - **Low latency:** Shared connection, single module per area, <230 LOC per file (target <200)
-- **Secure:** Basic Auth (username "apikey"), permission checks (403 errors caught), no key logging
+- **Secure:** Basic Auth (username "apikey") for stdio, OAuth 2.0 Bearer for HTTP; per-request credential isolation; admin allowlist on remote (destructive tools hidden by default); TransportSecuritySettings (DNS-rebinding/Origin protection) on HTTP
 - **Testable:** Pure helpers tested; CI validates syntax, format, tests, JSON configs
 
 ## Success Criteria
@@ -98,13 +98,13 @@ OpenProject REST API v3
 - **OpenProject API v3** (REST, JSON, HAL links)
 - **HTTP Basic Auth:** username "apikey", password = token
 - **Stdio transport:** stdout for protocol, stderr for logs
-- **Dependency freeze:** mcp ≥1.2.0, httpx ≥0.27; no vendored code
+- **Dependency freeze:** mcp ≥1.8.0 (HTTP transport support), httpx ≥0.27, starlette ≥0.37 (http mode only), uvicorn ≥0.30 (http mode only); no vendored code
 - **Idempotency:** GET/PATCH/DELETE retry on 429/5xx; POST never retry
 - **Permissions:** Tools fail gracefully with 403 Forbidden (insufficient role)
 
 ## Acceptance Criteria
 
-- [ ] Server starts, connects to OpenProject, runs all 44 tools
+- [ ] Server starts, connects to OpenProject, runs all tools (44 stdio / 37 http)
 - [ ] `whoami` identifies user; token validation on 401
 - [ ] Write tools confirm before action; destructive actions double-confirm
 - [ ] Concurrent edits rejected (optimistic locking via lockVersion)
@@ -117,6 +117,7 @@ OpenProject REST API v3
 
 ## Version History
 
+- **v0.8.0** (2026-06-23): Remote multi-user HTTP transport + OAuth resource server + per-request credentials + admin allowlist (44 stdio / 37 http)
 - **v0.7.0** (2026-06-07): `get_work_package` include param embeds children/relations; always returns parent_id/parent_subject
 - **v0.6.0** (2026-06-07): WP write ergonomics (delete, auto-lock, bulk, name params)
 - **v0.5.0** (2026-06-07): Activities, custom fields, notifications

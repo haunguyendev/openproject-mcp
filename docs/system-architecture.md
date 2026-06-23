@@ -4,38 +4,47 @@
 
 ```mermaid
 graph LR
-    A["Claude Client"] -->|"MCP Protocol<br/>(JSON over stdio)"| B["FastMCP Server<br/>server.py"]
-    B -->|"@mcp.tool()<br/>dispatcher"| C["Tool Module<br/>tools_*.py"]
-    C -->|"validate input<br/>prepare request"| D["op_client._req<br/>HTTP client"]
-    D -->|"Basic Auth<br/>httpx.Client"| E["OpenProject<br/>REST API v3"]
-    E -->|"JSON + HAL links"| D
-    D -->|"parse response"| F["formatters<br/>trim JSON"]
-    F -->|"add url field"| G["MCP Response<br/>JSON dict"]
-    G -->|"User sees<br/>formatted result"| A
+    A["Claude Client"] -->|"MCP Protocol<br/>JSON over stdio or<br/>Streamable HTTP"| B["Transport Layer<br/>stdio vs. http"]
+    B -->|"stdio (default)<br/>single-user"| C["FastMCP Server<br/>server.py"]
+    B -->|"http (MCP_TRANSPORT)<br/>multi-user"| D["Starlette + uvicorn<br/>http_app.py"]
+    C -->|"@mcp.tool()<br/>dispatcher"| E["Tool Module<br/>tools_*.py"]
+    D -->|"@mcp.tool()<br/>dispatcher"| E
+    E -->|"validate input<br/>prepare request"| F["op_client._req<br/>HTTP client"]
+    F -->|"Auth:<br/>Basic (env)<br/>or<br/>Bearer (per-req)"| G["OpenProject<br/>REST API v3"]
+    G -->|"JSON + HAL links"| F
+    F -->|"parse response"| H["formatters<br/>trim JSON"]
+    H -->|"add url field"| I["MCP Response<br/>JSON dict"]
+    I -->|"User sees<br/>formatted result"| A
+    D -->|"OAuth metadata<br/>RFC 8414/9728"| J["/.well-known/<br/>oauth-*"]
 ```
 
 ## Component Overview
 
 ### 1. FastMCP Server (`server.py`)
 
-**Responsibility:** Entry point; tool registration via side effects
+**Responsibility:** Entry point; transport dispatch (stdio vs. http); tool registration via side effects
 
 ```python
 # Imports tools_*.py for @mcp.tool() registration
 import tools_admin, tools_coder, tools_news, ...
 from app import mcp
+from config import resolve_transport
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 def main() -> None:
-    log.info("openproject-mcp v%s — base_url=%s", __version__, BASE_URL)
-    mcp.run()  # Blocks; handles stdio forever
+    cfg = resolve_transport(os.environ)
+    if cfg.transport == "http":
+        _run_http(cfg)  # Starlette + uvicorn (multi-user)
+    else:
+        _run_stdio(cfg)  # FastMCP.run() (single-user, default)
 ```
 
 **Characteristics:**
-- Minimal; 47 LOC
-- Runs forever on `mcp.run()`
+- ~85 LOC (grew with HTTP transport dispatch)
+- Calls `mcp.run()` (stdio) or uvicorn.run (http)
 - Logs startup info to stderr
+- Transport configurable via `MCP_TRANSPORT` env var
 - Tool registration happens at import time (side effects)
 
 ### 2. FastMCP App Instance (`app.py`)
@@ -51,68 +60,146 @@ mcp = FastMCP("openproject")
 
 ### 3. Configuration (`config.py`)
 
-**Responsibility:** Environment variables, logging
+**Responsibility:** Environment variables, transport config, admin allowlist rules, logging
 
 ```python
 import os, logging, sys
+from dataclasses import dataclass
 
 BASE_URL = os.environ.get("OPENPROJECT_URL", "").rstrip("/")
-API_KEY = os.environ.get("OPENPROJECT_API_KEY", "")
+API_KEY = os.environ.get("OPENPROJECT_API_KEY", "")  # Single-user only
 TIMEOUT = float(os.environ.get("OPENPROJECT_TIMEOUT_SECONDS", "30"))
 
-logging.basicConfig(stream=sys.stderr, ...)  # stdout reserved for MCP
-log = logging.getLogger("openproject-mcp")
+# Transport config
+@dataclass(frozen=True)
+class TransportConfig:
+    transport: str  # "stdio" (default) | "http" (remote multi-user)
+    host: str       # MCP_HOST (default 127.0.0.1)
+    port: int       # MCP_PORT (default 8000)
+    allowed_hosts: list[str]  # ALLOWED_HOSTS (production reverse proxy domains)
+    allowed_origins: list[str]  # ALLOWED_ORIGINS (CORS for OAuth callback)
+    public_url: str  # MCP_PUBLIC_URL (OAuth issuer; for Claude.ai web)
+
+# Admin allowlist (transport-aware)
+_DESTRUCTIVE_TOOLS = {
+    "delete_work_package",
+    "delete_news",
+    "remove_member",
+    "create_project",
+    "update_project",
+    "bulk_create_work_packages",
+    "bulk_update_work_packages",
+}
+
+def is_destructive(tool_name: str) -> bool:
+    """True if tool causes data loss or admin impact."""
+    return tool_name in _DESTRUCTIVE_TOOLS
+
+def admin_destructive_enabled(env) -> bool:
+    """Default: stdio=all 44 tools, http=37 tools (destructive hidden).
+    Override with OP_MCP_ENABLE_ADMIN_DESTRUCTIVE env var."""
+    return _transport_of(env) != "http"  # default
 ```
 
 **Key decisions:**
 - No `.env` file (env vars only)
+- TransportConfig: pure dataclass, test-friendly
 - Logs to stderr (stdout reserved for MCP protocol)
 - No API key in logs (only `api_key_set=True/False`)
 - Timeout configurable per request
+- Admin allowlist: 7 destructive tools, hidden on http remote by default (OP_MCP_ENABLE_ADMIN_DESTRUCTIVE toggles)
 
 ### 4. HTTP Client (`op_client.py`)
 
-**Responsibility:** Shared httpx.Client, retry logic, error handling, pagination
+**Responsibility:** Shared httpx.Client, per-request credential flow, retry logic, error handling, pagination
+
+**Per-Request Credential Flow (Multi-User HTTP Mode):**
+
+```python
+from contextvars import ContextVar
+
+request_ctx = ...  # SDK sets this during tool dispatch (http mode)
+
+def current_creds() -> Creds:
+    """Resolve credential for current request.
+    
+    - http mode: reads Bearer token from request headers → passes to auth
+    - stdio mode: falls back to OPENPROJECT_API_KEY env → Basic auth
+    """
+    override = _creds_override.get(None)  # Seam for testing/Phase 3B
+    if override:
+        return override
+    
+    req = _current_request()  # From SDK ContextVar
+    bearer = _bearer_from_request(req)
+    if bearer:
+        # http mode: per-request identity
+        return Creds(base_url=BASE_URL, bearer=bearer)
+    elif API_KEY:
+        # stdio mode: env credential (single-user, unchanged)
+        return Creds(base_url=BASE_URL, auth=("apikey", API_KEY))
+    else:
+        # http mode but no credential → 401 unauthenticated
+        raise AuthError("No credential found. Authenticate via OAuth.")
+```
 
 **Key exports:**
 
 | Function | Purpose |
 |----------|---------|
-| `_req(method, path, **kwargs)` | Low-level request with Basic Auth, retry, error handling |
+| `current_creds()` | Resolve per-request credential (Bearer or Basic auth) |
+| `_req(method, path, **kwargs)` | Low-level request with auth, retry, error handling; transport-aware 409 |
 | `_collection(path, **params)` | Paginated GET with offset/limit |
 | `client` | Shared httpx.Client for connection reuse |
 
-**Retry logic:**
+**Transport-Aware 409 Handling (Optimistic Locking):**
+
+```python
+def patch_wp_with_lock(wp_id: int, body: dict, lock_version: int | None = None) -> dict:
+    """Update work package with optimistic locking.
+    
+    - stdio (single-user): 409 triggers auto-refetch + single retry (accept potential overwrite)
+    - http (multi-user): 409 surfaces immediately to caller (strict, no silent overwrite)
+    """
+    is_http = config.is_http_transport()
+    
+    lv = lock_version if lock_version is not None else fetch_lock_version(wp_id)
+    payload = {**body, "lockVersion": lv}
+    try:
+        return _req("PATCH", f"/work_packages/{wp_id}", json=payload)
+    except ConflictError:
+        if is_http:
+            raise  # http mode: fail immediately (multi-user concurrent edit detected)
+        # stdio mode: refetch + retry once
+        lv = fetch_lock_version(wp_id)
+        payload["lockVersion"] = lv
+        return _req("PATCH", f"/work_packages/{wp_id}", json=payload)
+```
+
+**Retry Logic:**
 
 ```python
 if method == "POST":
     # POST never retries (write-once semantics)
     return response
-elif status in (429, 5xx):
+elif status in (429, 502, 503, 504):
     # GET/PATCH/DELETE retry once on transient failure
     wait_time = int(response.headers.get("Retry-After", "1"))
     sleep(wait_time)
     return retry_request()
 ```
 
-**Auth:**
-```python
-client = httpx.Client(
-    auth=("apikey", API_KEY),
-    timeout=TIMEOUT,
-    base_url=BASE_URL,
-)
-```
-
-**Error handling:**
+**Error Handling:**
 
 ```python
 if response.status_code == 401:
-    raise ValueError("Invalid or expired API key. Generate new one...")
+    raise AuthError("Unauthenticated. Re-authenticate via OAuth (http) or check API key (stdio).")
 elif response.status_code == 403:
     raise ValueError("Insufficient permission. Your role lacks access...")
 elif response.status_code == 404:
     raise ValueError(f"Not found: {path}")
+elif response.status_code == 409:
+    raise ConflictError("Optimistic lock mismatch; concurrent edit detected.")
 ```
 
 ### 5. Formatters (`formatters.py`)
@@ -181,7 +268,93 @@ RELATION_TYPES = [
 
 **Rationale:** Prevent invalid API calls; catch errors before network round-trip.
 
-### 7-13. Tool Modules (`tools_*.py`)
+### 6. Admin Allowlist (`allowlist.py`)
+
+**Responsibility:** Runtime tool filtering for remote (http) deployments
+
+**Why separate?** Destructive actions (delete, bulk ops, project archive) can harm non-technical team members. On http remote, these 7 tools are hidden by default to prevent accidental misuse.
+
+```python
+def install(mcp) -> None:
+    """Wrap FastMCP.list_tools() + call_tool() to filter destructive tools."""
+    
+    orig_list_tools = mcp.list_tools
+    orig_call_tool = mcp.call_tool
+    
+    async def list_tools():
+        tools = await orig_list_tools()
+        if config.admin_destructive_enabled():
+            return tools  # All 44 (stdio or admin override)
+        return [t for t in tools if not config.is_destructive(t.name)]  # Filter to 37
+    
+    async def call_tool(name, arguments):
+        if config.is_destructive(name) and not config.admin_destructive_enabled():
+            raise ValueError(f"Tool '{name}' is disabled on this deployment.")
+        return await orig_call_tool(name, arguments)
+    
+    mcp.list_tools = list_tools
+    mcp.call_tool = call_tool
+    mcp._mcp_server.list_tools()(list_tools)  # Wire both in-process + over-the-wire
+    mcp._mcp_server.call_tool(validate_input=False)(call_tool)
+```
+
+**Tool Coverage:**
+- **Destructive (hidden on http):** delete_work_package, delete_news, remove_member, create_project, update_project, bulk_create_work_packages, bulk_update_work_packages
+- **Safe (always shown):** 37 remaining tools (read-only + single writes with confirmation)
+
+**Override:** Set `OP_MCP_ENABLE_ADMIN_DESTRUCTIVE=true` to show all 44 tools (admin mode; use with caution).
+
+### 7. OAuth Resource Server (`oauth_metadata.py`)
+
+**Responsibility:** Serve RFC 8414 + RFC 9728 OAuth metadata endpoints
+
+**Why?** Claude.ai web custom connectors use RFC 9728 to discover how to authenticate. The MCP doesn't store tokens (OpenProject is the auth server); it advertises OAuth endpoints and expects per-request Bearer tokens from Claude.
+
+```python
+# GET /.well-known/oauth-protected-resource
+# GET /.well-known/oauth-authorization-server
+# GET /.well-known/oauth-protected-resource (non-standard, also at /mcp-suffixed path)
+
+# Returns:
+{
+    "issuer": "https://your-openproject.example.com",
+    "authorization_endpoint": "https://your-openproject.example.com/oauth/authorize",
+    "token_endpoint": "https://your-openproject.example.com/oauth/token",
+    "resource_server": "https://<mcp-public-url>",
+    "scopes_supported": ["api_v3"],
+}
+```
+
+**Key fields:**
+- `issuer` / `authorization_endpoint` / `token_endpoint` point to **OpenProject** (NOT the MCP)
+- `resource_server` is the MCP itself (for per-request Bearer validation)
+- OpenProject is the Authorization Server; MCP is the Resource Server
+
+### 8. HTTP Transport (`http_app.py`)
+
+**Responsibility:** Starlette ASGI app for multi-user Streamable HTTP transport
+
+**Why separate?** Stdio and http modes need different request handling. Starlette app handles DNS-rebinding protection, request routing, and FastMCP Streamable HTTP dispatch.
+
+```python
+app = Starlette(
+    routes=[
+        Route("/mcp", fastmcp_http_handler, methods=["POST"]),
+        Route("/.well-known/oauth-*", oauth_metadata_handler),
+        Route("/health", health_check),
+    ],
+    middleware=[
+        TransportSecuritySettings(
+            allowed_hosts=cfg.allowed_hosts,
+            allowed_origins=cfg.allowed_origins,
+        ),
+    ],
+)
+```
+
+**Security:** TransportSecuritySettings blocks DNS-rebinding attacks and Origin mismatches (important for OAuth callback protection).
+
+### 9-15. Tool Modules (`tools_*.py`)
 
 **Pattern:** Each module imports `app.mcp`, decorates functions with `@mcp.tool()`, implements tool logic.
 
@@ -421,6 +594,8 @@ Claude explains to user: "API key invalid. Generate a new one at..."
 
 ## Deployment Model
 
+### Single-User (Stdio, Default)
+
 **No server process needed.**
 
 - Claude Code: `claude --plugin-dir /path/to/openproject-mcp` (dev mode)
@@ -429,7 +604,44 @@ Claude explains to user: "API key invalid. Generate a new one at..."
 
 **Startup:** `uv run --script server/server.py` starts FastMCP on stdio.
 
+**Credentials:** `OPENPROJECT_URL` + `OPENPROJECT_API_KEY` from environment (unchanged from v0.7.0).
+
 **Logs:** All logs go to stderr (visible in Claude Code console or Desktop dev tools).
+
+### Multi-User (HTTP, Remote)
+
+**Requires container + reverse proxy (HTTPS).**
+
+- **MCP_TRANSPORT=http** enables Streamable HTTP (Starlette + uvicorn)
+- Runs on `MCP_HOST` (default 127.0.0.1) and `MCP_PORT` (default 8000)
+- Must be behind HTTPS reverse proxy (Caddy, nginx) for TLS
+- `MCP_PUBLIC_URL` advertised in OAuth metadata (for Claude.ai web)
+- `ALLOWED_HOSTS` + `ALLOWED_ORIGINS` required for production (DNS-rebinding protection)
+- **No `OPENPROJECT_API_KEY`** (each user authenticates via OAuth to OpenProject)
+- Tool count reduced to 37 (7 destructive tools hidden by default)
+- Per-request Bearer token isolation via SDK ContextVar
+- RFC 8414/9728 OAuth metadata at `/.well-known/oauth-*`
+
+**Startup:**
+```bash
+uv run --script server/server.py
+# Logs: "openproject-mcp v0.8.0 — transport=http, listening on 127.0.0.1:8000 (behind reverse proxy)"
+```
+
+**Reverse proxy example (Caddy):**
+```caddy
+openproject-mcp.example.com {
+    reverse_proxy 127.0.0.1:8000
+    tls user@example.com
+}
+```
+
+Caddy auto-TLS; MCP sees request, reads OAuth token from Claude.ai.
+
+### Why Two Paths?
+
+- **Stdio (single-user):** Dev/personal use, minimal setup, env credentials
+- **Http (remote multi-user):** Team deployments, OAuth per-request, tool safety filter, reverse-proxy HTTPS
 
 ## Security Boundaries
 

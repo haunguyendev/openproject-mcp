@@ -4,25 +4,29 @@
 
 The openproject-mcp project is a single-file MCP server (via PEP 723) split into modular sub-files for maintainability. All Python files are under `server/`, target <200 LOC for optimal context management (a few tool modules exceed it: `tools_work_packages.py` 272, `tools_reports.py` 226, `tools_admin.py` 205).
 
-**Total lines of code (server/):** ~1,841 LOC across 18 files  
-**Total tools:** 44 MCP tools across 9 tool modules  
+**Total lines of code (server/):** ~2,100+ LOC across 21 files  
+**Total tools:** 44 MCP tools (stdio single-user) / 37 tools (http remote multi-user, destructive admin tools hidden by default)  
 **Test coverage:** Pure helpers tested (formatters, validators)  
 **CI pipeline:** Lint, format, syntax, JSON validation, unit tests
+**Transport modes:** Stdio (single-user, default, unchanged) or HTTP (remote multi-user, per-request credentials, OAuth)
 
 ## Module Breakdown
 
 | File | LOC | Responsibility |
 |------|-----|---|
-| `server.py` | 47 | Entry point; imports tools_* for @mcp.tool() registration; logs startup info; calls `mcp.run()` |
+| `server.py` | ~85 | Entry point; imports tools_* for @mcp.tool() registration; resolves transport (stdio vs. http); runs FastMCP or Starlette/uvicorn; logs startup info |
 | `app.py` | 5 | Shared FastMCP("openproject") instance for tool registration |
-| `config.py` | 19 | Environment variables (OPENPROJECT_URL, OPENPROJECT_API_KEY, OPENPROJECT_TIMEOUT_SECONDS); stderr logging |
-| `op_client.py` | 131 | Shared httpx.Client; Basic Auth (user "apikey", pass = token); `_req` with idempotent retry; typed `ConflictError` (409); `patch_wp_with_lock` (auto lockVersion + 409 retry-once); `_collection` pagination; clear error messages |
+| `config.py` | ~119 | Environment variables (OPENPROJECT_URL, OPENPROJECT_API_KEY, OPENPROJECT_TIMEOUT_SECONDS, MCP_TRANSPORT, MCP_HOST, MCP_PORT, MCP_PUBLIC_URL, ALLOWED_HOSTS, ALLOWED_ORIGINS, OP_MCP_ENABLE_ADMIN_DESTRUCTIVE); TransportConfig dataclass; admin destructive allowlist guards; stderr logging |
+| `op_client.py` | ~160+ | Shared httpx.Client; per-request credential flow via ContextVar (current_creds reads Bearer from request headers or falls back to API_KEY env); Basic Auth (user "apikey", pass = token) or OAuth Bearer; `_req` with idempotent retry; typed `ConflictError` (409), `AuthError` (401 no creds); `patch_wp_with_lock` (auto lockVersion + 409 retry-once); `_collection` pagination; transport-aware 409 handling (http no auto-retry, stdio single-retry); clear error messages |
 | `formatters.py` | ~100 | HAL+JSON trimming helpers: `_fmt_wp`, `_parent_fields` (parent from `_links`), `_fmt_news`, `_fmt_activity`, `_fmt_notification`; `_href_id`, `_link_title`; time conversion; `_out` wrapper |
 | `validators.py` | ~95 | Pure stdlib: `validate_relation()` guards (rejects self, duplicate, direct cycles); `RELATION_TYPES` canonical list; `validate_include()` + `ALLOWED_INCLUDES` for `get_work_package` |
 | `wp_helpers.py` | ~45 | Shared work package fetchers (no `@mcp.tool`): `_fetch_children` (full subtask details), `_fetch_relations` (normalized relations); reused by `get_work_package`, `list_children`, `get_relations` |
 | `resolvers.py` | 51 | Name→ID resolution: pure `match_by_name` (case-insensitive, ambiguous/not-found guards) + `resolve_status_id` / `resolve_priority_id` / `resolve_type_id(name, project)` |
 | `custom_fields.py` | ~60 | Pure stdlib: `extract_custom_fields()` (read) + `apply_custom_fields()` (write) for work package `customFieldN` (scalar + link-type) |
 | `bulk_helpers.py` | 18 | Pure stdlib: `summarize_bulk()` builds the bulk result envelope (updated/created, failed, ok/fail/total counts) |
+| `allowlist.py` | ~45 | Runtime admin destructive tool filter: wraps FastMCP.list_tools() + call_tool() to hide/block destructive tools on http remote (config.is_destructive + config.admin_destructive_enabled check); dispatch-level + list-level guard |
+| `oauth_metadata.py` | ~45 | RFC 8414 + RFC 9728 OAuth metadata endpoints: serves `/.well-known/oauth-authorization-server` (OpenProject's /oauth/authorize + /oauth/token) and `/.well-known/oauth-protected-resource` (MCP resource server info); MCP_PUBLIC_URL as issuer |
+| `http_app.py` | ~60 | Starlette HTTP app for multi-user mode: TransportSecuritySettings (DNS-rebinding, Origin protection), request routing (MCP Streamable HTTP on /mcp + POST, OAuth metadata, health check); per-request auth isolation via SDK ContextVar |
 | `tools_work_packages.py` | ~285 | list_work_packages, get_work_package (parent fields always; `include=["children","relations"]` for one-call context; incl. custom_fields), create_work_package (type/priority by name), update_work_package (optional lock_version + auto-retry, status/priority by name), add_comment, list_activities, delete_work_package |
 | `tools_bulk.py` | 153 | bulk_update_work_packages (shared fields, continue-on-error, reuses patch_wp_with_lock), bulk_create_work_packages (flat, per-item resolve) |
 | `tools_projects.py` | 118 | list_projects, list_project_members, list_versions, list_types, list_statuses, list_priorities, whoami |
@@ -208,8 +212,10 @@ uv run --with pytest --with httpx pytest -q tests/
 ```python
 # requires-python = ">=3.10"
 # dependencies = [
-#     "mcp>=1.2.0",
+#     "mcp>=1.8.0",
 #     "httpx>=0.27",
+#     "starlette>=0.37",     # HTTP mode only
+#     "uvicorn>=0.30",       # HTTP mode only
 # ]
 ```
 
@@ -218,10 +224,11 @@ uv run --with pytest --with httpx pytest -q tests/
 uv run --script server/server.py
 ```
 
-No `requirements.txt`, no virtualenv, no `pip install` — `uv` handles it.
+No `requirements.txt`, no virtualenv, no `pip install` — `uv` handles it. Starlette + uvicorn are optional (stdio mode doesn't load them).
 
 ## Recent Changes
 
+- **v0.8.0** — Remote multi-user via HTTP with OAuth: `config.py` resolves transport (stdio vs. http); `op_client.py` per-request credential flow (Bearer from request headers, fallback to env); `allowlist.py` runtime admin destructive tool filter (stdio 44 / http 37 tools); `oauth_metadata.py` + `http_app.py` serve RFC 8414/9728 OAuth metadata + Starlette HTTP app; mcp ≥1.8.0 (HTTP transport support); patch_wp_with_lock transport-aware 409 handling. Stdio path unchanged.
 - **v0.7.0** — `get_work_package` read ergonomics: `include=["children","relations"]` (one-call context) + always-on `parent_id`/`parent_subject`; shared fetchers extracted to `wp_helpers.py` (`_fetch_children`, `_fetch_relations`); `validate_include` + `_parent_fields`. Tool count unchanged (44).
 - **v0.6.0** — WP write ergonomics: `delete_work_package`; `bulk_update_work_packages` + `bulk_create_work_packages` (`tools_bulk.py`, `bulk_helpers.py`); name params for status/type/priority (`resolvers.py`); `update_work_package` optional lock_version + auto 409 retry-once (`patch_wp_with_lock`, `ConflictError`). 41 → 44 tools.
 - **v0.5.0** — Activities, custom fields, notifications (`tools_notifications.py`, `custom_fields.py`)
