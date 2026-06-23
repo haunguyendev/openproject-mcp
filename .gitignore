@@ -1,6 +1,11 @@
 # File local chứa hướng dẫn có token — không commit
 CAI-DAT-CLAUDE-DESKTOP.md
 
+# Secrets / env — không bao giờ commit (.env.example thì commit được)
+.env
+.env.*
+!.env.example
+
 # Python
 __pycache__/
 *.pyc

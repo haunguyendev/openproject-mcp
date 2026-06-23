@@ -1,8 +1,10 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "mcp>=1.2.0",
+#     "mcp>=1.8.0",
 #     "httpx>=0.27",
+#     "starlette>=0.37",
+#     "uvicorn>=0.30",
 # ]
 # ///
 """OpenProject MCP server — entry point.
@@ -39,7 +41,7 @@ import tools_work_packages  # noqa: F401
 from app import mcp
 from config import API_KEY, BASE_URL, TransportConfig, log, resolve_transport
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 
 def _run_http(cfg: TransportConfig) -> None:

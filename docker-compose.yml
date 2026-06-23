@@ -1,0 +1,12 @@
+# Remote multi-user OpenProject MCP — chạy cạnh reverse proxy HTTPS.
+# Container chỉ bind localhost; reverse proxy (Caddy/nginx) làm TLS và đẩy về 127.0.0.1:8000.
+# MCP gọi OpenProject qua URL public (OPENPROJECT_URL) → không cần join network OpenProject.
+services:
+  op-mcp:
+    build: .
+    image: openproject-mcp:0.8.0
+    container_name: openproject-mcp
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8000:8000" # chỉ localhost; KHÔNG expose thẳng ra Internet

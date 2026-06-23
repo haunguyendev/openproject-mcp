@@ -43,6 +43,7 @@ def test_auto_fetch_lock_version_when_omitted(monkeypatch):
 
 
 def test_retries_once_on_conflict(monkeypatch):
+    monkeypatch.delenv("MCP_TRANSPORT", raising=False)  # stdio: rollup → retry 1 lần
     calls = []
     state = {"patch": 0}
 
@@ -63,6 +64,8 @@ def test_retries_once_on_conflict(monkeypatch):
 
 
 def test_double_conflict_propagates(monkeypatch):
+    monkeypatch.delenv("MCP_TRANSPORT", raising=False)  # stdio
+
     def fake_req(method, path, *, params=None, body=None):
         if method == "GET":
             return {"lockVersion": 1}
@@ -72,3 +75,21 @@ def test_double_conflict_propagates(monkeypatch):
     with pytest.raises(ConflictError) as e:
         patch_wp_with_lock(10, {"subject": "x"})
     assert "thử lại" in str(e.value)  # thông điệp rõ ràng sau retry
+
+
+def test_http_surfaces_conflict_without_overwrite(monkeypatch):
+    # M2: http multi-user → 409 lần đầu surface ngay, KHÔNG retry-ghi-đè mù.
+    monkeypatch.setenv("MCP_TRANSPORT", "http")
+    calls = []
+
+    def fake_req(method, path, *, params=None, body=None):
+        calls.append(method)
+        if method == "GET":
+            return {"lockVersion": 5}
+        raise ConflictError("HTTP 409")
+
+    monkeypatch.setattr(op_client, "_req", fake_req)
+    with pytest.raises(ConflictError) as e:
+        patch_wp_with_lock(10, {"subject": "x"})
+    assert calls == ["GET", "PATCH"]  # KHÔNG có GET/PATCH lần hai (không ghi đè)
+    assert "người khác" in str(e.value)

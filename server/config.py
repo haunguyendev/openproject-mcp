@@ -56,6 +56,11 @@ def _transport_of(env: Mapping[str, str]) -> str:
     return "http" if env.get("MCP_TRANSPORT", "").strip().lower() == "http" else "stdio"
 
 
+def is_http_transport(env: Mapping[str, str] = os.environ) -> bool:
+    """http = remote multi-user (nhiều người có thể cùng ghi) → ảnh hưởng xử lý 409 (M2)."""
+    return _transport_of(env) == "http"
+
+
 def resolve_transport(env: Mapping[str, str]) -> TransportConfig:
     """Phân giải transport + tham số HTTP từ một mapping môi trường.
 

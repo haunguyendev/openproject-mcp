@@ -191,14 +191,15 @@ def _collection(
 
 
 def patch_wp_with_lock(wp_id: int, body: dict, lock_version: int | None = None) -> dict:
-    """PATCH work package với optimistic locking tự động (lấy lockVersion + retry 1 lần).
+    """PATCH work package với optimistic locking (lấy lockVersion); xử lý 409 theo transport.
 
-    lock_version=None → tự lấy lockVersion mới nhất qua GET. Gặp 409 (ai đó vừa sửa,
-    hoặc rollup từ subtask/relation bump version cha) → lấy lại lockVersion và thử lại
-    MỘT lần. Lần 409 thứ hai → ném ConflictError với hướng dẫn rõ ràng.
+    lock_version=None → tự lấy lockVersion mới nhất qua GET.
 
-    Cảnh báo: retry tự động sẽ ghi đè thay đổi đồng thời của người khác xảy ra giữa hai
-    lần thử — chấp nhận được khi chỉ một tác nhân (AI) đang ghi.
+    - **stdio (single-agent):** 409 thường là rollup (subtask/relation bump lockVersion cha)
+      → lấy lại lockVersion và thử lại MỘT lần; 409 lần hai → ConflictError. Giữ hành vi cũ.
+    - **http (remote multi-user — M2):** 409 có thể là người khác vừa sửa → **KHÔNG retry-ghi-đè
+      mù**; surface ConflictError ngay để người dùng `get_work_package` lấy bản mới rồi update lại
+      (tránh mất update âm thầm khi nhiều người cùng ghi).
     """
     lv = lock_version
     if lv is None:
@@ -206,7 +207,13 @@ def patch_wp_with_lock(wp_id: int, body: dict, lock_version: int | None = None) 
     payload = {**body, "lockVersion": lv}
     try:
         return _req("PATCH", f"/work_packages/{wp_id}", body=payload)
-    except ConflictError:
+    except ConflictError as first:
+        if config.is_http_transport():
+            raise ConflictError(
+                f"HTTP 409: work package #{wp_id} vừa bị người khác sửa đồng thời. "
+                "Dùng get_work_package lấy bản mới nhất rồi thực hiện lại thay đổi "
+                "(không tự ghi đè để tránh mất update của người khác)."
+            ) from first
         payload["lockVersion"] = _req("GET", f"/work_packages/{wp_id}").get("lockVersion")
         try:
             return _req("PATCH", f"/work_packages/{wp_id}", body=payload)

@@ -1,0 +1,8 @@
+# Caddy — tự động cấp TLS Let's Encrypt. Thêm block này vào Caddyfile.
+# Caddy giữ nguyên Host header gốc → app thấy mcp.example.com (khớp ALLOWED_HOSTS).
+mcp.example.com {
+	reverse_proxy 127.0.0.1:8000 {
+		# Streamable HTTP có thể dùng SSE → không buffer, timeout dài.
+		flush_interval -1
+	}
+}

@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-23
+
+### Added
+- **Remote multi-user mode** over Streamable HTTP. Set `MCP_TRANSPORT=http` to serve over HTTP so colleagues can connect from Claude.ai web, each authenticated as themselves on OpenProject (RBAC enforced per user). The default transport stays `stdio` (single-user) and is unchanged.
+- **Per-request credentials** (`op_client.current_creds`) — each request's identity is resolved from the MCP request context; stdio falls back to the `OPENPROJECT_API_KEY` env var (existing behavior preserved). The auth-baked HTTP client cache was removed; auth is supplied per request.
+- **OAuth 2.0 resource-server** support (`server/oauth_metadata.py`, `server/http_app.py`): serves RFC 9728 protected-resource and RFC 8414 authorization-server metadata advertising OpenProject as the authorization server (PKCE `S256`, scope `api_v3`), and challenges unauthenticated http requests with `401 + WWW-Authenticate` to trigger Claude.ai's OAuth flow. No token storage or refresh in the server (Claude re-authorizes on 401).
+- **Transport-aware admin allowlist** (`server/allowlist.py`): destructive/high-impact tools (`delete_work_package`, `delete_news`, `remove_member`, `create_project`, `update_project`, `bulk_create_work_packages`, `bulk_update_work_packages`) are hidden on remote by default — **stdio 44 tools / http 37** — via a runtime `list_tools` filter plus a dispatch block. Toggle with `OP_MCP_ENABLE_ADMIN_DESTRUCTIVE`.
+- DNS-rebinding/Origin protection in http mode (`TransportSecuritySettings`). New env vars: `MCP_TRANSPORT`, `MCP_HOST`, `MCP_PORT`, `MCP_PUBLIC_URL`, `ALLOWED_HOSTS`, `ALLOWED_ORIGINS`, `OP_MCP_ENABLE_ADMIN_DESTRUCTIVE`.
+- Deployment artifacts: `Dockerfile`, `docker-compose.yml`, `.env.example`, `deploy/caddy.snippet`, `deploy/nginx.snippet`.
+
+### Changed
+- `patch_wp_with_lock` is now transport-aware (multi-user safety): in http mode a `409` surfaces immediately rather than auto-retrying, to avoid silently overwriting a concurrent edit; stdio keeps the single rollup retry.
+- Dependency floor raised to `mcp>=1.8.0` (Streamable HTTP); `starlette`/`uvicorn` declared in the PEP 723 metadata for http mode.
+
 ## [0.7.0] - 2026-06-07
 
 ### Added
