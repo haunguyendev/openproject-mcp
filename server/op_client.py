@@ -1,14 +1,29 @@
 """HTTP client + request helpers cho OpenProject API v3.
 
-Auth: HTTP Basic, username "apikey", password = API token.
+Credential lấy **per-request** (multi-user remote) qua cơ chế đã verify ở Phase 1 spike:
+SDK đặt ContextVar `request_ctx` trước khi dispatch tool → op_client đọc request hiện tại
+ở đây, KHÔNG cần truyền `ctx` qua 44 tool. Không có request (stdio) → fallback env
+(`OPENPROJECT_API_KEY`) → flow single-user cũ giữ nguyên 100% (RÀNG BUỘC SỐ 1).
+
+Auth: HTTP Basic (username "apikey", password = API token) hoặc Bearer (OAuth — Phase 3A).
+`OPENPROJECT_URL` là toàn cục (cả nhóm 1 instance) nên client dùng chung 1 base_url.
 """
 
 import json
 import time
+from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any
 
+import config
 import httpx
-from config import API_KEY, BASE_URL, TIMEOUT, log
+from config import log
+
+# request_ctx của SDK chỉ có khi chạy dưới mcp; pure-helper test (không cài mcp) → None.
+try:
+    from mcp.server.lowlevel.server import request_ctx
+except Exception:  # pragma: no cover - chỉ khi mcp vắng mặt (test thuần)
+    request_ctx = None
 
 _RETRYABLE = {429, 502, 503, 504}
 _http: httpx.Client | None = None
@@ -22,21 +37,89 @@ class ConflictError(RuntimeError):
     """
 
 
-def _client() -> httpx.Client:
-    """Trả về HTTP client dùng chung (tái sử dụng kết nối)."""
+class AuthError(RuntimeError):
+    """Không có credential per-request khả dụng → ánh xạ thành 401 sạch cho người gọi.
+
+    Phân biệt với lỗi cấu hình cũ ("OPENPROJECT_API_KEY chưa cấu hình"): ở chế độ http
+    multi-user, thiếu Bearer/định danh nghĩa là request chưa xác thực, không phải server
+    cấu hình sai.
+    """
+
+
+@dataclass(frozen=True)
+class Creds:
+    """Credential cho MỘT request. base_url toàn cục; chỉ auth/bearer đổi theo user."""
+
+    base_url: str
+    auth: tuple[str, str] | None = None  # Basic ("apikey", token)
+    bearer: str | None = None  # OAuth bearer (Phase 3A)
+
+
+# Seam ghi đè credential per-request (test + Phase 3B vault set token theo /c/<id>/).
+_creds_override: ContextVar[Creds | None] = ContextVar("op_creds_override", default=None)
+
+
+def _current_request() -> Any | None:
+    """Request HTTP hiện tại từ ContextVar của SDK (None khi stdio hoặc ngoài request)."""
+    if request_ctx is None:
+        return None
+    rc = request_ctx.get(None)
+    return getattr(rc, "request", None) if rc is not None else None
+
+
+def _bearer_from_request(req: Any | None) -> str | None:
+    if req is None:
+        return None
+    header = req.headers.get("authorization")
+    if header and header.lower().startswith("bearer "):
+        return header.split(None, 1)[1].strip()
+    return None
+
+
+def current_creds() -> Creds:
+    """Phân giải credential cho request hiện tại.
+
+    Thứ tự: override (vault/test) → Bearer trong request (OAuth) → env (stdio/http đơn-user)
+    → AuthError 401 sạch (http multi-user không định danh).
+    """
+    override = _creds_override.get(None)
+    if override is not None:
+        return override
+
+    base = config.BASE_URL
+    if not base:
+        raise ValueError("OPENPROJECT_URL chưa được cấu hình trong môi trường.")
+
+    bearer = _bearer_from_request(_current_request())
+    if bearer:
+        return Creds(base_url=base, bearer=bearer)
+
+    if config.API_KEY:  # fallback env: stdio cũ + http single-user smoke
+        return Creds(base_url=base, auth=("apikey", config.API_KEY))
+
+    raise AuthError(
+        "HTTP 401: request chưa xác thực. Endpoint yêu cầu định danh per-user "
+        "(Authorization: Bearer …) hoặc cấu hình OPENPROJECT_API_KEY cho chế độ đơn-user."
+    )
+
+
+def _request_kwargs(creds: Creds) -> dict:
+    """kwargs httpx cho từng request: Bearer → header; ngược lại → Basic auth."""
+    if creds.bearer:
+        return {"headers": {"Authorization": f"Bearer {creds.bearer}"}}
+    return {"auth": creds.auth}
+
+
+def _client(base_url: str) -> httpx.Client:
+    """Client dùng chung (pool kết nối), KHÔNG gắn auth — auth truyền per-request (M1).
+
+    1 instance OpenProject → 1 base_url → 1 client; tránh rò rỉ fd/memory của cache cũ.
+    """
     global _http
-    if not BASE_URL:
-        raise ValueError("OPENPROJECT_URL chưa được cấu hình trong .mcp.json.")
-    if not API_KEY:
-        raise ValueError(
-            "OPENPROJECT_API_KEY chưa được cấu hình. Lấy key tại: "
-            f"{BASE_URL}/my/access_token (My account → Access tokens → API)."
-        )
     if _http is None or _http.is_closed:
         _http = httpx.Client(
-            base_url=BASE_URL + "/api/v3",
-            auth=("apikey", API_KEY),
-            timeout=TIMEOUT,
+            base_url=base_url + "/api/v3",
+            timeout=config.TIMEOUT,
             follow_redirects=True,
             headers={"Accept": "application/hal+json"},
         )
@@ -53,12 +136,15 @@ def _error_message(r: httpx.Response) -> str:
 def _req(method: str, path: str, *, params: dict | None = None, body: dict | None = None) -> dict:
     """Gọi API với 1 lần retry cho lỗi tạm thời (429/5xx).
 
+    Credential lấy per-request qua current_creds() (auth/bearer truyền vào từng call).
     POST không idempotent (create_relation, create_work_package, log_time, add_comment,
     add_member...) → KHÔNG retry để tránh tạo trùng khi mất phản hồi sau khi đã ghi thành công.
     GET/PATCH/DELETE/PUT idempotent → vẫn retry như cũ.
     """
-    c = _client()
-    r = c.request(method, path, params=params, json=body)
+    creds = current_creds()
+    c = _client(creds.base_url)
+    auth_kwargs = _request_kwargs(creds)
+    r = c.request(method, path, params=params, json=body, **auth_kwargs)
     if r.status_code in _RETRYABLE and method.upper() != "POST":
         # Retry-After có thể là số giây hoặc HTTP-date (RFC 7231); date → fallback 1s.
         try:
@@ -67,7 +153,7 @@ def _req(method: str, path: str, *, params: dict | None = None, body: dict | Non
             retry_after = 1.0
         log.warning("HTTP %s từ %s %s — retry sau %.1fs", r.status_code, method, path, retry_after)
         time.sleep(min(retry_after, 10))
-        r = c.request(method, path, params=params, json=body)
+        r = c.request(method, path, params=params, json=body, **auth_kwargs)
     if r.status_code == 401:
         raise RuntimeError(
             "HTTP 401: API key không hợp lệ hoặc đã hết hạn. "
