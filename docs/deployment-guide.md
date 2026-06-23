@@ -223,6 +223,178 @@ For details, see Cowork's MCP documentation.
 
 ---
 
+## Remote (Multi-User) Deployment
+
+**For teams using Claude.ai web custom connectors with per-user OAuth authentication.**
+
+This is a production deployment mode, distinct from the single-user paths above. Use this if you want:
+- Multiple team members accessing the same OpenProject instance via Claude.ai web
+- Each user authenticates to OpenProject independently (no shared API token)
+- Admin safety: dangerous tools (delete, bulk ops) hidden by default
+
+### Prerequisites
+
+- **OpenProject instance** (self-hosted or cloud) with OAuth 2.0 support (standard)
+- **OpenProject OAuth application** (client_id + client_secret)
+  - Redirect URI: `https://claude.ai/api/mcp/auth_callback` (exact)
+  - Scope: `api_v3`
+- **Container runtime** (Docker, Kubernetes, etc.)
+- **Reverse proxy** with HTTPS (Caddy, nginx, etc.)
+- **Public HTTPS domain** for the MCP (e.g., `openproject-mcp.example.com`)
+
+### Step 1: Create OpenProject OAuth Application
+
+In OpenProject (admin):
+
+1. Go to **Administration → OAuth applications → Create**
+2. Enter:
+   - Name: "Claude MCP" (or your choice)
+   - **Redirect URI:** `https://claude.ai/api/mcp/auth_callback` (MUST be exact)
+   - Scopes: Check `api_v3`
+3. Save; note the **client_id** and **client_secret**
+
+**Important:** The redirect URI is Claude's, not your MCP domain. OpenProject will send the auth code back to Claude, which forwards it to your MCP.
+
+### Step 2: Deploy the MCP Container
+
+Use the provided `Dockerfile`:
+
+```bash
+cd openproject-mcp
+docker build -t openproject-mcp:0.8.0 .
+docker run -d \
+  --name openproject-mcp \
+  -p 127.0.0.1:8000:8000 \
+  -e MCP_TRANSPORT=http \
+  -e MCP_HOST=0.0.0.0 \
+  -e MCP_PORT=8000 \
+  -e OPENPROJECT_URL=https://your-openproject.example.com \
+  -e MCP_PUBLIC_URL=https://openproject-mcp.example.com \
+  -e ALLOWED_HOSTS=openproject-mcp.example.com \
+  -e ALLOWED_ORIGINS=openproject-mcp.example.com \
+  openproject-mcp:0.8.0
+```
+
+Or use the provided `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+services:
+  openproject-mcp:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8000
+      OPENPROJECT_URL: https://your-openproject.example.com
+      MCP_PUBLIC_URL: https://openproject-mcp.example.com
+      ALLOWED_HOSTS: openproject-mcp.example.com
+      ALLOWED_ORIGINS: openproject-mcp.example.com
+      # DO NOT set OPENPROJECT_API_KEY (each user authenticates via OAuth)
+```
+
+### Step 3: Reverse Proxy (HTTPS)
+
+Deploy behind a reverse proxy to terminate TLS.
+
+**Caddy (simplest; auto-TLS):**
+
+Create `Caddyfile`:
+
+```caddy
+openproject-mcp.example.com {
+    reverse_proxy 127.0.0.1:8000
+    tls user@example.com
+}
+```
+
+Run:
+
+```bash
+docker run -d \
+  --name caddy \
+  -p 80:80 -p 443:443 \
+  -v ./Caddyfile:/etc/caddy/Caddyfile \
+  caddy
+```
+
+**Nginx (with manual TLS):**
+
+See `deploy/nginx.snippet` in the repo for a sample config.
+
+### Step 4: Configure Claude.ai Web
+
+In Claude.ai (web):
+
+1. **Settings → Integrations → Add Custom MCP**
+2. Enter:
+   - **Name:** OpenProject
+   - **MCP URL:** `https://openproject-mcp.example.com/mcp`
+   - **Advanced settings:**
+     - Client ID: (from OpenProject OAuth app)
+     - Client Secret: (from OpenProject OAuth app)
+3. Click **Connect**
+4. You'll be redirected to OpenProject to log in
+5. Authorize the OAuth application
+6. You're now authenticated to use OpenProject MCP in Claude.ai
+
+### Step 5: Test the Connection
+
+Ask Claude: *"Who am I on OpenProject?"*
+
+Claude will call the `whoami` tool. You should see your name and roles.
+
+### Environment Variables Reference
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `MCP_TRANSPORT` | ✅ | stdio | Set to `http` for remote multi-user |
+| `OPENPROJECT_URL` | ✅ | — | Your OpenProject instance URL (HTTPS) |
+| `MCP_HOST` | ❌ | 127.0.0.1 | Bind address (0.0.0.0 for Docker) |
+| `MCP_PORT` | ❌ | 8000 | Bind port |
+| `MCP_PUBLIC_URL` | ✅ | http://host:port | Public HTTPS URL of the MCP (for OAuth issuer) |
+| `ALLOWED_HOSTS` | ✅ | — | CSV of reverse-proxy domains (DNS-rebinding protection) |
+| `ALLOWED_ORIGINS` | ❌ | — | CSV of CORS origins for OAuth callback |
+| `OP_MCP_ENABLE_ADMIN_DESTRUCTIVE` | ❌ | false | Set to `true` to show all 44 tools (default: 37 on http) |
+| `OPENPROJECT_TIMEOUT_SECONDS` | ❌ | 30 | Per-request timeout |
+
+**Critical:** Do NOT set `OPENPROJECT_API_KEY` in http mode (each user authenticates via OAuth).
+
+### Security & Exposure
+
+- **OAuth + per-request credential isolation:** Each user's Bearer token is validated per request; no shared keys
+- **Firewall + rate-limit:** Recommend restricting to Anthropic IP ranges at the proxy (optional defense-in-depth)
+- **Admin allowlist:** Dangerous tools (delete, archive project, bulk ops) are hidden by default
+  - Non-technical team members can only see 37 safe tools
+  - Admins can override with `OP_MCP_ENABLE_ADMIN_DESTRUCTIVE=true`
+- **HTTPS only:** All traffic to/from MCP must be HTTPS (enforced by reverse proxy)
+- **DNS-rebinding protection:** TransportSecuritySettings validates `Host` header + CORS origins
+
+### Rollback
+
+To roll back to single-user (stdio) mode:
+
+1. Stop the container
+2. Revert `MCP_TRANSPORT` to `stdio` (or omit it)
+3. Set `OPENPROJECT_URL` + `OPENPROJECT_API_KEY`
+4. Restart using single-user deployment path (Claude Code, Desktop, etc.)
+
+No data migration needed; the stdio path is unchanged.
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| 401 Unauthorized | OAuth token expired or invalid | Re-authenticate via Claude.ai Settings → Integrations |
+| Tool count is 37, want 44 | Admin restrictive mode on http | Set `OP_MCP_ENABLE_ADMIN_DESTRUCTIVE=true` (admin only) |
+| "DNS rebinding blocked" | Reverse proxy hostname mismatch | Ensure `ALLOWED_HOSTS` matches reverse-proxy domain |
+| Claude can't find MCP | URL wrong or proxy not running | Check `MCP_PUBLIC_URL` in Claude settings; verify reverse proxy is up |
+| "No credential found" | User not authenticated | OAuth redirect didn't complete; re-authenticate in Claude.ai |
+
+---
+
 ## Configuration
 
 ### Environment Variables

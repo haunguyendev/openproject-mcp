@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP server](https://img.shields.io/badge/MCP-server-purple.svg)](https://modelcontextprotocol.io/)
-![Version](https://img.shields.io/badge/version-0.7.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.8.0-green.svg)
 
 <p align="center">
   <img src="docs/assets/openproject-mcp-claude-hero.webp" alt="OpenProject + MCP + Claude" width="100%">
@@ -50,8 +50,9 @@ The agent fetches the instructions from that link, asks you for your OpenProject
 
 ## Features
 
-- **44 tools across 4 roles** — member, project manager, coder, and admin — covering work packages (incl. activities and custom fields), projects, members, versions, relations, time tracking, news, notifications, reports, and administration.
+- **44 tools across 4 roles** — member, project manager, coder, and admin — covering work packages (incl. activities and custom fields), projects, members, versions, relations, time tracking, news, notifications, reports, and administration. (Stdio single-user: 44 tools; HTTP remote multi-user: 37 tools with destructive admin actions hidden by default for safety.)
 - **Works anywhere Claude runs** — Claude Code (plugin/marketplace), Claude Desktop, and Cowork.
+- **Single-user (stdio) or multi-user (HTTP)** — default is single-user with env credentials (unchanged); set `MCP_TRANSPORT=http` for remote multi-user via Claude.ai web with OAuth (see [deployment guide](docs/deployment-guide.md)).
 - **Any OpenProject** — point it at your own instance with two environment variables.
 - **Safe writes** — the bundled skill confirms before creating/updating anything and uses optimistic locking (`lockVersion`) to avoid clobbering concurrent edits.
 - **Resilient** — shared HTTP connection, one automatic retry on `429`/`5xx` (honoring `Retry-After`), and clear messages on auth failure.

@@ -58,12 +58,12 @@ Complete project documentation for the OpenProject MCP server and Claude plugin.
 
 ## Key Facts
 
-- **Current version:** 0.7.0 (shipped 2026-06-07)
-- **Tools:** 44 across 4 personas (member, project-manager, coder, admin)
-- **Server:** Single Python MCP server; modularized (13 files <230 LOC each)
-- **Stack:** FastMCP + httpx; dependencies via PEP 723; run via `uv run --script`
+- **Current version:** 0.8.0 (shipped 2026-06-23)
+- **Tools:** 44 (stdio single-user) / 37 (http remote — destructive admin tools hidden) across 4 personas
+- **Server:** Single Python MCP server; modularized (files <230 LOC each)
+- **Stack:** FastMCP + httpx (+ starlette/uvicorn for http mode); dependencies via PEP 723; run via `uv run --script`
 - **API:** OpenProject REST API v3 (any self-hosted instance)
-- **Auth:** HTTP Basic Auth (username "apikey", token from environment)
+- **Auth:** stdio = HTTP Basic (apikey + env token); http = per-user OAuth Bearer (OpenProject as auth server)
 - **Philosophy:** Dependency-light, resilient, secrets-out, confirm-before-write
 
 ---

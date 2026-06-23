@@ -1,9 +1,9 @@
 # Project Roadmap — openproject-mcp
 
-## Current Version: 0.7.0 (2026-06-07)
+## Current Version: 0.8.0 (2026-06-23)
 
 **Status:** Stable, production-ready  
-**Shipped:** get_work_package include children/relations + parent fields
+**Shipped:** Remote multi-user HTTP transport with OAuth, per-request credentials, admin allowlist
 
 ## Completed Phases
 
@@ -128,18 +128,19 @@
 
 ## Version History Summary
 
-| Version | Release | Focus | Tools |
+| Version | Release | Focus | Tools (stdio / http) |
 |---------|---------|-------|-------|
-| 0.1.0 | 2026-06-07 | MVP | 16 |
-| 0.2.0 | 2026-06-07 | Modularized, resilient | 16 |
-| 0.2.1 | 2026-06-07 | Secrets-out, CI | 16 |
-| 0.3.0 | 2026-06-07 | Personas, admin | 33 |
-| 0.3.1 | 2026-06-07 | Hierarchy hardening | 33 |
-| 0.4.0 | 2026-06-07 | News CRUD | 38 |
-| 0.5.0 | 2026-06-07 | Activities, custom fields, notifications | 41 |
-| 0.6.0 | 2026-06-07 | WP write ergonomics: delete, auto-lock, bulk, name params | 44 |
-| **0.7.0** | **2026-06-07** | **get_work_package include children/relations + parent fields** | **44** |
-| 0.8.0+ | Exploration | enable_project_types, cycle detection, cross-project, integrations | TBD |
+| 0.1.0 | 2026-06-07 | MVP | 16 / N/A |
+| 0.2.0 | 2026-06-07 | Modularized, resilient | 16 / N/A |
+| 0.2.1 | 2026-06-07 | Secrets-out, CI | 16 / N/A |
+| 0.3.0 | 2026-06-07 | Personas, admin | 33 / N/A |
+| 0.3.1 | 2026-06-07 | Hierarchy hardening | 33 / N/A |
+| 0.4.0 | 2026-06-07 | News CRUD | 38 / N/A |
+| 0.5.0 | 2026-06-07 | Activities, custom fields, notifications | 41 / N/A |
+| 0.6.0 | 2026-06-07 | WP write ergonomics: delete, auto-lock, bulk, name params | 44 / N/A |
+| 0.7.0 | 2026-06-07 | get_work_package include children/relations + parent fields | 44 / N/A |
+| **0.8.0** | **2026-06-23** | **Remote multi-user HTTP + OAuth + per-request creds + admin allowlist** | **44 / 37** |
+| 0.9.0+ | Exploration | cycle detection, cross-project, integrations | TBD |
 
 ## Success Metrics
 
@@ -181,9 +182,11 @@
 | Dependency | Version | Status | Notes |
 |-----------|---------|--------|-------|
 | Python | 3.10+ | ✅ Stable | PEP 723 inline metadata |
-| mcp | ≥1.2.0 | ✅ Stable | MCP v1.0+ protocol |
+| mcp | ≥1.8.0 | ✅ Stable | HTTP transport support (v1.8.0+) |
 | httpx | ≥0.27 | ✅ Stable | Async-capable; we use sync |
-| OpenProject | API v3 | ✅ Stable | Community + Cloud supported |
+| starlette | ≥0.37 | ✅ Stable | HTTP app framework (HTTP mode only) |
+| uvicorn | ≥0.30 | ✅ Stable | ASGI server (HTTP mode only) |
+| OpenProject | API v3 | ✅ Stable | Community + Cloud supported; OAuth 2.0 for remote mode |
 | uv | Latest | ✅ Stable | Script runner, no virtualenv |
 | ruff | Latest | ✅ Stable | Lint + format |
 
